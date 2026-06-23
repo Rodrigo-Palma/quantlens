@@ -27,13 +27,25 @@ _PROMPT = (
 )
 
 
-def explain(ticker: str, rsi: float, mom: float, vol: float) -> str | None:
+def explain(
+    ticker: str,
+    rsi: float,
+    mom: float,
+    vol: float,
+    context: str | None = None,
+) -> str | None:
     """Return an LLM-generated explanation, or ``None`` if unavailable.
 
-    Callers should fall back to a deterministic explanation when this returns
-    ``None`` (e.g. the local model is not running).
+    ``context`` is optional retrieved reference material (RAG) used to ground
+    term definitions. Callers should fall back to a deterministic explanation
+    when this returns ``None`` (e.g. the local model is not running).
     """
     prompt = _PROMPT.format(ticker=ticker, rsi=rsi, mom=mom, vol=vol)
+    if context:
+        prompt += (
+            "\nReference material (use only to define terms accurately, "
+            f"do not quote verbatim):\n{context}\n"
+        )
     try:
         if settings.llm_provider == "ollama":
             return _ollama_generate(prompt)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from quantlens import __version__, llm
+from quantlens import __version__, llm, rag
 from quantlens.config import settings
 from quantlens.data.market import fetch_close
 from quantlens.quant import signals
@@ -52,7 +52,8 @@ def analyze(ticker: str) -> AnalyzeResponse:
     vol = signals.annualized_volatility(close)
     last = float(close.iloc[-1])
 
-    explanation = llm.explain(symbol, rsi_value, mom, vol) or _rule_based(
+    context = "\n\n".join(rag.retrieve(f"RSI momentum volatility {symbol}", k=2))
+    explanation = llm.explain(symbol, rsi_value, mom, vol, context=context) or _rule_based(
         symbol, rsi_value, mom, vol
     )
 
