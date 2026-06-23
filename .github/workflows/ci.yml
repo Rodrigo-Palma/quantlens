@@ -38,3 +38,6 @@ jobs:
 
       - name: Tests (pytest)
         run: uv run pytest
+
+      - name: Evals (offline)
+        run: uv run python -m quantlens.evals

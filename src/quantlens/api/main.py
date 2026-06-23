@@ -5,9 +5,10 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from quantlens import __version__, llm, rag
+from quantlens import __version__, guardrails, llm, rag
 from quantlens.config import settings
 from quantlens.data.market import fetch_close
+from quantlens.explain import rule_based
 from quantlens.quant import signals
 
 app = FastAPI(title=settings.app_name, version=__version__)
@@ -53,8 +54,11 @@ def analyze(ticker: str) -> AnalyzeResponse:
     last = float(close.iloc[-1])
 
     context = "\n\n".join(rag.retrieve(f"RSI momentum volatility {symbol}", k=2))
-    explanation = llm.explain(symbol, rsi_value, mom, vol, context=context) or _rule_based(
-        symbol, rsi_value, mom, vol
+    generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
+    explanation = (
+        generated
+        if generated and guardrails.validate(generated).ok
+        else rule_based(symbol, rsi_value, mom, vol)
     )
 
     return AnalyzeResponse(
@@ -64,20 +68,4 @@ def analyze(ticker: str) -> AnalyzeResponse:
         momentum_20d=round(mom, 4),
         annualized_volatility=round(vol, 4),
         explanation=explanation,
-    )
-
-
-def _rule_based(ticker: str, rsi_value: float, mom: float, vol: float) -> str:
-    """Deterministic fallback explanation (no LLM required)."""
-    trend = "an uptrend" if mom > 0 else "a downtrend"
-    if rsi_value > 70:
-        rsi_note = "overbought (RSI > 70)"
-    elif rsi_value < 30:
-        rsi_note = "oversold (RSI < 30)"
-    else:
-        rsi_note = "neutral"
-    return (
-        f"{ticker} is in {trend} over the last 20 sessions "
-        f"(momentum {mom:+.1%}); RSI {rsi_value:.0f} ({rsi_note}); "
-        f"annualized volatility {vol:.1%}."
     )
