@@ -1,6 +1,6 @@
 [project]
 name = "quantlens"
-version = "0.1.0"
+version = "0.4.0"
 description = "AI quant analyst for the Brazilian stock market (B3): computes quantitative signals and explains them in natural language."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,6 +32,16 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "pre-commit>=3.7",
+]
+finetune = [
+    "torch>=2.2",
+    "transformers>=4.44",
+    "peft>=0.12",
+    "datasets>=2.20",
+    "accelerate>=0.33",
+]
+demo = [
+    "streamlit>=1.36",
 ]
 
 [project.urls]
