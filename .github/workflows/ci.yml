@@ -41,3 +41,6 @@ jobs:
 
       - name: Evals (offline)
         run: uv run python -m quantlens.evals
+
+      - name: Benchmark quality gate (latency + guardrail/eval regression)
+        run: uv run python scripts/benchmark.py
