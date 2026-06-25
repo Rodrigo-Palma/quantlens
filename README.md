@@ -50,6 +50,38 @@ finance with a modern LLM stack. It is built as an end-to-end engineering showca
 [FastAPI]  ──>  [Streamlit demo]
 ```
 
+## Results / Benchmarks
+
+Latency of the **offline path** (no network, no LLM), measured with `make bench`
+— reproducible in CI and on any machine (Python 3.13 · arm64 · 2000 iters).
+Numbers are honest and small on purpose: the dominant cost in production is the
+LLM call, benchmarked separately by hardware/model.
+
+| Stage (offline, no LLM) | p50 | p95 | p99 |
+|---|---:|---:|---:|
+| RSI(14) | 303 µs | 358 µs | 433 µs |
+| Momentum + volatility | 98 µs | 119 µs | 137 µs |
+| BM25 retrieval (k=2) | 13 µs | 14 µs | 18 µs |
+| Rule-based explanation | <1 µs | 1 µs | 1 µs |
+| Guardrail validation | 1 µs | 1 µs | 1 µs |
+| **Offline pipeline (end-to-end, no LLM)** | **441 µs** | **600 µs** | **797 µs** |
+
+| Quality layer | Result |
+|---|---:|
+| Offline eval suite (faithfulness + guardrails) | **4/4 pass** |
+| Guardrail recall (advice phrasing blocked) | **4/4** |
+| Guardrail false positives (clean text blocked) | **0/3** |
+| Test suite | **10 passed · 74% line coverage** |
+
+> Reproduce: `make bench` (latency + quality) and `make test` (coverage).
+
+## Architecture decisions
+
+The non-obvious trade-offs are recorded as short ADRs in
+[`docs/adr/`](docs/adr/): BM25 vs embeddings, local-first LLM, rule-based
+guardrails vs an LLM judge, and offline deterministic evals. Each states the
+decision, the rejected alternatives, and the downside that was accepted.
+
 ## Quickstart
 
 ```bash
@@ -72,7 +104,8 @@ make install   # uv sync --extra dev
 make lint      # ruff check
 make type      # mypy
 make test      # pytest + coverage
-uv run python -m quantlens.evals   # offline eval suite
+make evals     # offline eval suite (faithfulness + guardrails)
+make bench     # latency + quality benchmark (reproduces the table above)
 ```
 
 ## Demo
@@ -107,11 +140,31 @@ docker compose up --build      # serves the API on :8000
 - [x] **v0.3** — output guardrails + offline eval suite gated in CI
 - [x] **v0.4** — LoRA fine-tuning script + containerized serving + demo
 
+## Limitations & next steps
+
+Honest boundaries of the current system, and where I'd take it next:
+
+- **Retrieval is lexical (BM25).** Great for a small glossary; it misses semantic
+  paraphrase. *Next:* embeddings + a vector store once the corpus justifies the
+  operational weight ([ADR 0001](docs/adr/0001-bm25-over-embeddings.md)).
+- **Evals gate the deterministic floor, not the LLM's own output.** CI proves the
+  fallback is faithful and safe; it does **not** score the generated text. *Next:*
+  an LLM-graded faithfulness/grounding harness (ragas-style) as a non-blocking
+  nightly job ([ADR 0004](docs/adr/0004-offline-deterministic-evals.md)).
+- **Guardrails are a deterministic deny-list.** Strong as a hard gate, blind to
+  novel phrasings. *Next:* an advisory LLM-judge layer *on top of* the
+  deterministic one ([ADR 0003](docs/adr/0003-rule-based-guardrails-and-fallback.md)).
+- **Signals are descriptive, not predictive.** RSI/momentum/volatility are
+  classic indicators, not a backtested strategy. *Next:* a backtest module with
+  walk-forward evaluation — and it would stay descriptive, never advice.
+- **Single-ticker, synchronous requests.** *Next:* batch/portfolio analysis and a
+  caching layer for the yfinance fetch (the only network-bound hop).
+
 ## Disclaimer
 
 Educational / engineering project. **Not investment advice.** Uses public data only.
 
 ## Author
 
-**Rodrigo Stachlewski Palma** — Data & AI Engineer (Azure Data Scientist & Fabric certified).
+**Rodrigo Stachlewski Palma** — Senior Data & AI Engineer (Azure Data Scientist & Fabric certified).
 [LinkedIn](https://linkedin.com/in/rodrigospalma/) · [GitHub](https://github.com/Rodrigo-Palma)

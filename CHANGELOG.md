@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-06-25
+
+### Added
+- Reproducible offline benchmark (`scripts/benchmark.py`, `make bench`): per-stage
+  latency (p50/p95/p99) plus guardrail-recall and eval quality, run as a CI gate.
+- Architecture Decision Records in `docs/adr/` (BM25 vs embeddings, local-first
+  LLM, rule-based guardrails vs LLM judge, offline deterministic evals).
+- README "Results / Benchmarks" (measured numbers) and "Limitations & next steps".
+
+### Changed
+- CI now runs the benchmark as a regression gate on guardrail/eval quality.
+
 ## [0.4.0] - 2026-06-23
 
 ### Added
