@@ -10,7 +10,7 @@
 > by retrieval (RAG) and protected by output guardrails and an offline eval suite.
 > Local-first: runs on a local LLM (Ollama) with no API key, swappable to a paid API.
 
-<!-- ![demo](docs/demo.gif) -->
+![demo](docs/demo.gif)
 
 ## Why
 
