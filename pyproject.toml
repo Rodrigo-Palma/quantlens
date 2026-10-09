@@ -69,6 +69,13 @@ addopts = "-q --cov=quantlens --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
 
+[tool.coverage.run]
+source = ["quantlens"]
+
+[tool.coverage.report]
+fail_under = 74
+show_missing = true
+
 [tool.mypy]
 python_version = "3.12"
 files = ["src"]

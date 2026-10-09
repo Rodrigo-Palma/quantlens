@@ -1,7 +1,7 @@
-.PHONY: install lint fmt type test bench evals run all
+.PHONY: install lint fmt fmt-check type test bench evals run docker all
 
 install:
-	uv sync --extra dev
+	uv sync --locked --extra dev
 
 lint:
 	uv run ruff check .
@@ -21,7 +21,13 @@ evals:
 bench:
 	uv run python scripts/benchmark.py
 
+fmt-check:
+	uv run ruff format --check .
+
+docker:
+	docker build -t quantlens:dev .
+
 run:
 	uv run uvicorn quantlens.api.main:app --reload
 
-all: lint type test evals
+all: lint fmt-check type test evals bench
