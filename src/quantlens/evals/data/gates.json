@@ -1,0 +1,6 @@
+{
+  "retrieval.free_text.bm25.hit_at_1": {"min": 0.647},
+  "retrieval.regime.per_signal.recall_at_3": {"min": 1.0},
+  "guardrail.guardrail_dev.recall": {"min": 0.966},
+  "guardrail.guardrail_dev.false_positive": {"max": 0.034}
+}
