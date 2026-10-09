@@ -1,4 +1,4 @@
-.PHONY: install lint fmt fmt-check type test bench evals run docker all
+.PHONY: install lint fmt fmt-check type test bench evals evals-record run docker all
 
 install:
 	uv sync --locked --extra dev
@@ -17,6 +17,10 @@ test:
 
 evals:
 	uv run python -m quantlens.evals
+
+# Re-record the LLM cassettes (needs a local Ollama with the models pulled).
+evals-record:
+	LLM_PROVIDER=ollama uv run python -m quantlens.evals.record --model qwen3:32b --model qwen3:8b
 
 bench:
 	uv run python scripts/benchmark.py

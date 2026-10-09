@@ -31,9 +31,13 @@ def test_gates_flag_min_max_and_missing() -> None:
 
 
 def test_recorded_gates_are_all_measured() -> None:
-    from quantlens.evals import retrieval
+    from quantlens.evals import faithfulness, retrieval
 
-    measured = {**retrieval.measured(), **guardrail.measured(guardrail.run())}
+    measured = {
+        **retrieval.measured(),
+        **guardrail.measured(guardrail.run()),
+        **faithfulness.measured(faithfulness.run()),
+    }
     assert set(gates.load_bounds()) <= set(measured)
 
 

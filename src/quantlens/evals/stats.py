@@ -54,3 +54,19 @@ def mde_two_proportions(p: float, n: int, alpha: float = 0.05, power: float = 0.
     z_alpha = NormalDist().inv_cdf(1 - alpha / 2)
     z_power = NormalDist().inv_cdf(power)
     return (z_alpha + z_power) * math.sqrt(2 * p * (1 - p) / n)
+
+
+def mcnemar_exact(only_a: int, only_b: int) -> float:
+    """Two-sided exact McNemar p-value from the discordant pair counts.
+
+    ``only_a`` is the number of cases system A passed and B failed; ``only_b`` the
+    reverse. Concordant pairs carry no information about the difference.
+    """
+    if only_a < 0 or only_b < 0:
+        raise ValueError("counts must be non-negative")
+    n = only_a + only_b
+    if n == 0:
+        return 1.0
+    k = min(only_a, only_b)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / 2**n
+    return min(1.0, 2 * tail)

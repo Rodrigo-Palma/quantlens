@@ -7,16 +7,22 @@ from __future__ import annotations
 
 import sys
 
-from quantlens.evals import guardrail, retrieval
+from quantlens.evals import faithfulness, guardrail, retrieval
 from quantlens.evals.gates import check
 
 
 def main() -> int:
-    lines: list[str] = []
-    lines += retrieval.report()
+    faith_scores = faithfulness.run()
     guard_scores = guardrail.run()
+    lines = faithfulness.report(faith_scores)
     lines += guardrail.report(guard_scores)
-    failures = check({**retrieval.measured(), **guardrail.measured(guard_scores)})
+    lines += retrieval.report()
+    measured = {
+        **faithfulness.measured(faith_scores),
+        **guardrail.measured(guard_scores),
+        **retrieval.measured(),
+    }
+    failures = check(measured)
     print("\n".join(lines))
     if failures:
         print("\nGATE FAILED:\n  " + "\n  ".join(failures))

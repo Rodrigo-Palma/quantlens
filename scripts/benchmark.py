@@ -1,14 +1,16 @@
-"""Reproducible micro-benchmark for the offline QuantLens pipeline.
+"""Reproducible latency benchmark for the QuantLens request path.
 
-Measures the latency of every deterministic stage (quant signals, BM25
-retrieval, rule-based explanation, guardrails) and the quality of the offline
-eval + guardrail layers. Everything here runs with **no network and no LLM**,
-so the numbers are reproducible in CI and on any machine.
+Two parts:
 
-What is intentionally *not* measured: yfinance network fetch (I/O-bound, varies
-with the upstream API) and the Ollama LLM generation (hardware/model dependent).
-Those live behind the same interfaces and are benchmarked separately when a GPU
-is available.
+* Offline stages (quant signals, BM25 retrieval, rule-based explanation,
+  guardrails), timed here with no network and no LLM, so the numbers reproduce
+  in CI and on any machine.
+* The LLM call, which dominates a real request. It is not re-run here: its
+  latency is read from the recorded eval cassettes (one Ollama call per case,
+  timed by ``python -m quantlens.evals.record``) and reported per model with the
+  hardware it was recorded on.
+
+Quality (faithfulness, guardrail, retrieval) lives in ``python -m quantlens.evals``.
 
 Run:
     uv run python scripts/benchmark.py
@@ -20,7 +22,6 @@ from __future__ import annotations
 import argparse
 import platform
 import statistics
-import sys
 import time
 from collections.abc import Callable
 
@@ -28,10 +29,9 @@ import numpy as np
 import pandas as pd
 
 from quantlens import guardrails
-from quantlens.evals import run as run_evals
 from quantlens.explain import rule_based
-from quantlens.quant import signals
-from quantlens.rag import retrieve
+from quantlens.quant import regime, signals
+from quantlens.rag import retrieve_for_regime
 
 # A fixed synthetic price series keeps the benchmark deterministic and offline.
 _RNG = np.random.default_rng(42)
@@ -39,11 +39,13 @@ _CLOSE = pd.Series(
     100.0 * np.exp(np.cumsum(_RNG.normal(0.0005, 0.02, size=180))),
     name="close",
 )
+_REGIME = regime.classify(72.0, 0.08, 0.35)
+_TEXT = rule_based("PETR4", 72.0, 0.08, 0.35)
 
 
-def _percentiles(samples_us: list[float]) -> tuple[float, float, float]:
-    """Return (p50, p95, p99) in microseconds."""
-    ordered = sorted(samples_us)
+def _percentiles(samples: list[float]) -> tuple[float, float, float]:
+    """Return (p50, p95, p99) using nearest-rank on the sorted samples."""
+    ordered = sorted(samples)
     return (
         statistics.median(ordered),
         ordered[min(len(ordered) - 1, int(0.95 * len(ordered)))],
@@ -67,42 +69,30 @@ def _offline_pipeline() -> str:
     rsi_value = float(signals.rsi(_CLOSE).iloc[-1])
     mom = signals.momentum(_CLOSE)
     vol = signals.annualized_volatility(_CLOSE)
-    context = "\n\n".join(retrieve("RSI momentum volatility", k=2))  # noqa: F841
+    retrieve_for_regime(regime.classify(rsi_value, mom, vol))
     text = rule_based("PETR4", rsi_value, mom, vol)
     guardrails.validate(text)
     return text
 
 
-# Labeled guardrail probe set: (text, should_be_blocked).
-_GUARDRAIL_PROBES: tuple[tuple[str, bool], ...] = (
-    ("PETR4 is in an uptrend; RSI 72 (overbought); volatility 35%.", False),
-    ("Solid fundamentals and neutral RSI around 50.", False),
-    ("Annualized volatility is elevated at 41%.", False),
-    ("You should buy PETR4 now before it runs.", True),
-    ("This is a guaranteed, risk-free trade.", True),
-    ("I recommend selling immediately.", True),
-    ("It's a sure thing, you can't lose.", True),
-)
+def _llm_rows() -> list[tuple[str, int, float, float, float]]:
+    """(label, n, p50, p95, p99) in seconds per recorded model."""
+    from quantlens.evals import cassette
 
-
-def _guardrail_quality() -> tuple[int, int, int]:
-    """Return (true_positives, false_negatives, false_positives) on the probe set."""
-    tp = fn = fp = 0
-    for text, should_block in _GUARDRAIL_PROBES:
-        blocked = not guardrails.validate(text).ok
-        if should_block and blocked:
-            tp += 1
-        elif should_block and not blocked:
-            fn += 1
-        elif not should_block and blocked:
-            fp += 1
-    return tp, fn, fp
+    rows = []
+    for name, records in cassette.load_all().items():
+        seconds = [r.latency_ms / 1000 for r in records]
+        if not seconds:
+            continue
+        p50, p95, p99 = _percentiles(seconds)
+        rows.append((f"{name} on {records[0].hardware}", len(seconds), p50, p95, p99))
+    return rows
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--iters", type=int, default=2000, help="timed iterations per stage")
-    parser.add_argument("--markdown", action="store_true", help="emit a markdown table")
+    parser.add_argument("--markdown", action="store_true", help="emit markdown tables")
     args = parser.parse_args()
 
     def _mom_vol() -> tuple[float, float]:
@@ -111,21 +101,13 @@ def main() -> None:
     stages: list[tuple[str, Callable[[], object]]] = [
         ("RSI(14)", lambda: signals.rsi(_CLOSE)),
         ("Momentum + volatility", _mom_vol),
-        ("BM25 retrieval (k=2)", lambda: retrieve("RSI momentum volatility", k=2)),
+        ("BM25 retrieval (3 signal queries)", lambda: retrieve_for_regime(_REGIME)),
         ("Rule-based explanation", lambda: rule_based("PETR4", 72.0, 0.08, 0.35)),
-        ("Guardrail validation", lambda: guardrails.validate("PETR4 is in an uptrend.")),
+        ("Guardrail validation", lambda: guardrails.validate(_TEXT)),
         ("Offline pipeline (end-to-end, no LLM)", _offline_pipeline),
     ]
-
     rows = [(name, *_time(fn, args.iters)) for name, fn in stages]
-
-    # Quality layers.
-    eval_results = run_evals()
-    eval_pass = sum(r.passed for r in eval_results)
-    eval_total = len(eval_results)
-    tp, fn_, fp = _guardrail_quality()
-    guard_total = len(_GUARDRAIL_PROBES)
-
+    llm_rows = _llm_rows()
     machine = f"{platform.python_version()} · {platform.machine()} · {platform.system()}"
 
     if args.markdown:
@@ -134,25 +116,20 @@ def main() -> None:
         print("|---|---:|---:|---:|")
         for name, p50, p95, p99 in rows:
             print(f"| {name} | {p50:.0f} µs | {p95:.0f} µs | {p99:.0f} µs |")
-        print("\n| Quality layer | Result |")
-        print("|---|---:|")
-        print(f"| Offline eval suite (faithfulness + guardrails) | {eval_pass}/{eval_total} pass |")
-        print(f"| Guardrail recall (advice blocked) | {tp}/{tp + fn_} |")
-        clean_total = guard_total - (tp + fn_)
-        print(f"| Guardrail false positives (clean text blocked) | {fp}/{clean_total} |")
+        print("\n| LLM call (recorded) | n | p50 | p95 | p99 |")
+        print("|---|---:|---:|---:|---:|")
+        for label, n, p50, p95, p99 in llm_rows:
+            print(f"| {label} | {n} | {p50:.1f} s | {p95:.1f} s | {p99:.1f} s |")
         return
 
-    print(f"QuantLens offline benchmark — {args.iters} iters — {machine}\n")
+    print(f"QuantLens latency benchmark: {args.iters} iters, {machine}\n")
     print(f"{'Stage':42} {'p50':>9} {'p95':>9} {'p99':>9}")
     print("-" * 72)
     for name, p50, p95, p99 in rows:
         print(f"{name:42} {p50:8.0f}µ {p95:8.0f}µ {p99:8.0f}µ")
     print("-" * 72)
-    print(f"Offline eval suite : {eval_pass}/{eval_total} pass")
-    print(f"Guardrail recall   : {tp}/{tp + fn_} advice phrases blocked")
-    print(f"Guardrail FP       : {fp}/{guard_total - (tp + fn_)} clean phrases wrongly blocked")
-    if eval_pass != eval_total or fn_ or fp:
-        sys.exit(1)
+    for label, n, p50, p95, p99 in llm_rows:
+        print(f"LLM {label} (n={n}): p50 {p50:.1f}s  p95 {p95:.1f}s  p99 {p99:.1f}s")
 
 
 if __name__ == "__main__":
