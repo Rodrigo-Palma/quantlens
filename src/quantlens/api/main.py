@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import math
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException, Response
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from quantlens import __version__, guardrails, llm, rag
+from quantlens.cache import TTLCache
 from quantlens.config import settings
 from quantlens.data.market import fetch_close
 from quantlens.explain import rule_based
@@ -18,11 +20,17 @@ from quantlens.quant import regime, signals
 # RSI(14) needs 15 closes and 20-session momentum needs 21; below that a signal
 # is NaN, which is not valid JSON. Reject the request instead of serving NaN.
 MIN_OBSERVATIONS = 21
+# B3 tickers: four letters, one or two digits, optional F for the fractional
+# market (PETR4, TAEE11, PETR4F). Anything else is rejected before any I/O.
+TICKER_PATTERN = r"^[A-Za-z]{4}\d{1,2}[Ff]?$"
+TICKER_MAX_LENGTH = 7
 
 ExplanationSource = Literal["llm", "fallback"]
 
 configure_logging()
 app = FastAPI(title=settings.app_name, version=__version__)
+_closes: TTLCache[pd.Series] = TTLCache(settings.cache_ttl_s, settings.cache_max_entries)
+_explanations: TTLCache[str] = TTLCache(settings.cache_ttl_s, settings.cache_max_entries)
 
 
 class HealthResponse(BaseModel):
@@ -50,7 +58,10 @@ def health() -> HealthResponse:
 
 
 @app.get("/analyze", response_model=AnalyzeResponse)
-def analyze(ticker: str, response: Response) -> AnalyzeResponse:
+def analyze(
+    ticker: Annotated[str, Query(pattern=TICKER_PATTERN, max_length=TICKER_MAX_LENGTH)],
+    response: Response,
+) -> AnalyzeResponse:
     """Compute quant signals for a B3 ticker and explain them.
 
     The explanation comes from the configured LLM. If the model is unavailable or
@@ -71,10 +82,7 @@ def analyze(ticker: str, response: Response) -> AnalyzeResponse:
 
 def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     with trace.stage("fetch"):
-        try:
-            close = fetch_close(symbol)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        close = _fetch(symbol)
     if len(close) < MIN_OBSERVATIONS:
         raise HTTPException(
             status_code=422,
@@ -93,7 +101,7 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     with trace.stage("retrieve"):
         context = "\n\n".join(rag.retrieve_for_regime(current))
     with trace.stage("llm"):
-        generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
+        generated = _explain(symbol, rsi_value, mom, vol, context)
     with trace.stage("guardrail"):
         verdict = guardrails.validate(generated) if generated else None
 
@@ -116,6 +124,30 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
         explanation_source=source,
         guardrail_violations=violations,
     )
+
+
+def _fetch(symbol: str) -> pd.Series:
+    cached = _closes.get(symbol)
+    if cached is not None:
+        return cached
+    try:
+        close = fetch_close(symbol)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    _closes.put(symbol, close)
+    return close
+
+
+def _explain(symbol: str, rsi_value: float, mom: float, vol: float, context: str) -> str | None:
+    """The LLM explanation, reused for identical inputs; a failure is not cached."""
+    key = (settings.llm_provider, settings.llm_model, symbol, rsi_value, mom, vol, context)
+    cached = _explanations.get(key)
+    if cached is not None:
+        return cached
+    generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
+    if generated:
+        _explanations.put(key, generated)
+    return generated
 
 
 def _choose(

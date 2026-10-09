@@ -25,5 +25,9 @@ class Settings(BaseSettings):
     llm_seed: int = 0
     llm_think: bool = False
 
+    # Seconds a fetched series and a generated explanation are reused (0 disables).
+    cache_ttl_s: float = 900.0
+    cache_max_entries: int = 256
+
 
 settings = Settings()

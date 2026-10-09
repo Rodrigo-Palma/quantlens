@@ -159,3 +159,50 @@ def test_flat_series_has_undefined_rsi_and_is_422(
     response = client.get("/analyze", params={"ticker": "PETR4"})
     assert response.status_code == 422
     assert "undefined" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("bad", ["", "PETR", "PETR123", "PETR4.SA", "../etc", "A" * 200, "1234"])
+def test_rejects_malformed_ticker_with_422(monkeypatch: pytest.MonkeyPatch, bad: str) -> None:
+    def _never(ticker: str) -> pd.Series:
+        raise AssertionError("fetch must not run for a malformed ticker")
+
+    monkeypatch.setattr(main, "fetch_close", _never)
+    response = client.get("/analyze", params={"ticker": bad})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("good", ["PETR4", "taee11", "PETR4F"])
+def test_accepts_b3_ticker_forms(market: object, ollama: Callable[..., None], good: str) -> None:
+    ollama(_reply("Neutral RSI, an uptrend and moderate volatility."))
+    assert client.get("/analyze", params={"ticker": good}).status_code == 200
+
+
+def test_repeated_request_reuses_series_and_explanation(
+    monkeypatch: pytest.MonkeyPatch, ollama: Callable[..., None]
+) -> None:
+    calls = {"fetch": 0, "llm": 0}
+    close = _series()
+
+    def _fetch(ticker: str) -> pd.Series:
+        calls["fetch"] += 1
+        return close
+
+    def _explain(*args: object, **kwargs: object) -> str:
+        calls["llm"] += 1
+        return "Neutral RSI, an uptrend and moderate volatility."
+
+    monkeypatch.setattr(main, "fetch_close", _fetch)
+    monkeypatch.setattr(main.llm, "explain", _explain)
+    first = client.get("/analyze", params={"ticker": "PETR4"}).json()
+    second = client.get("/analyze", params={"ticker": "petr4"}).json()
+    assert first == second
+    assert calls == {"fetch": 1, "llm": 1}
+
+
+def test_unavailable_llm_is_not_cached(monkeypatch: pytest.MonkeyPatch, market: object) -> None:
+    replies = iter([None, "Neutral RSI, an uptrend and moderate volatility."])
+    monkeypatch.setattr(main.llm, "explain", lambda *a, **k: next(replies))
+    first = client.get("/analyze", params={"ticker": "PETR4"}).json()
+    second = client.get("/analyze", params={"ticker": "PETR4"}).json()
+    assert first["explanation_source"] == "fallback"
+    assert second["explanation_source"] == "llm"
