@@ -4,6 +4,61 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-10-09
+
+### Added
+- Moderate volatility cells in the faithfulness grid (24% to 36%, the most
+  common regime for B3 large caps, absent in v0.6): 180 cases covering all 18
+  regimes. The 60 new cases come from a separate seeded stream, so the 120 v0.6
+  cases and their recordings are unchanged; the four cassettes were extended
+  with `record --missing-only`, which refuses to mix model digests.
+- Checker audit (`checker_audit.py`): recall of the faithfulness checker on
+  known-wrong text, for the v0.6 and v0.7 checkers. Eight mutation types of
+  every correct recorded output (in-sample, 99.2% to 100% caught by v0.7, 0% on
+  sign flips, swapped figures and invented constants for v0.6) and 96 errors
+  planted by `gemma4:31b-it-qat` and reviewed by hand (out-of-sample: 91/96 =
+  94.8% caught by v0.7, 56/96 = 58.3% by v0.6). The planted errors are labels
+  and trend terms only.
+- Held-out retrieval set: 60 questions from `gemma4:31b-it-qat`, which saw only
+  the section titles, measured once with the glossary and tokenizer frozen.
+  BM25 hit@1 34/60 = 56.7% [44.1%, 68.4%], against 26/32 on the in-sample dev
+  set. Exact McNemar between tokenizers on both sets (p = 0.06 and 0.07, not
+  significant).
+- `/analyze` validates the ticker (`^[A-Za-z]{4}\d{1,2}[Ff]?$`, 422 before any
+  I/O) and caches the fetched series and the generated explanation for
+  `CACHE_TTL_S` (default 900 s); failures are not cached.
+- ADR 0006 (exact-count regression gates).
+
+### Changed
+- **Faithfulness checker rewritten.** Every number is bound to the signal named
+  next to it and to its sign; the 20/30/40/70 constants pass only after a
+  comparison, in a range or as a window; direction is judged from trend terms
+  and from direction verbs in the sentence holding the momentum figure, not
+  from any loose word; "neutral" outside 30 to 70 and "price fluctuations"
+  labels are checked; a hedge must be in the same clause. The v0.6 checker
+  passed text with the momentum sign inverted, the figures swapped or
+  invented 30%/40% values; it is kept as the audit baseline.
+- Measured on 180 cases: qwen3:32b 180/180 [97.9%, 100%], qwen3:8b 175/180 =
+  97.2%, rule-based 180/180. Without retrieval qwen3:32b falls to 84/180 =
+  46.7% and qwen3:8b to 103/180 = 57.2%. On the 120 v0.6 cases the retrieval
+  runs did not move; the no-retrieval runs dropped (101 to 64 and 107 to 51),
+  all from volatility labels written as "moderate price fluctuations" below
+  20%, which v0.6 did not read. No number, sign or direction error was found
+  in the 720 recorded outputs.
+- **Regression gates are exact counts** (`min`/`max`/`eq`) instead of Wilson
+  lower bounds, which let qwen3:32b lose 3 of 120 cases or the guardrail lose 8
+  advice sentences with CI green. `python -m quantlens.evals --update-gates`
+  rewrites them.
+- `make bench` labels the LLM latency as recorded (date, Ollama version), and
+  the CI step says that only offline latency is measured there.
+- The Docker base image is pinned by digest, with Dependabot for the docker
+  ecosystem.
+
+### Documented
+- The guardrail round 2 set is gated and printed on every run; the next
+  pattern revision has to treat it as dev and measure a fresh round 3 once.
+- Without a reachable Ollama, the Docker setup always serves the fallback.
+
 ## [0.6.0] - 2026-10-09
 
 ### Added
