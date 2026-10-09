@@ -51,6 +51,7 @@ _VOL_BANDS = {"low": (0.10, 0.18), "high": (0.42, 0.70)}
 # "2-3 sentences" style counts.
 _CONSTANTS = frozenset({0.0, 1.0, 2.0, 3.0, 14.0, 20.0, 30.0, 40.0, 50.0, 70.0, 100.0, 252.0})
 _RSI_TOL = 1.0
+_HEDGE_WINDOW = 5
 _PCT_TOL = 0.51
 
 _NUMBER = re.compile(r"(?<![A-Za-z0-9])[-+]?\d+(?:[.,]\d+)?")
@@ -84,9 +85,10 @@ class Case:
     mom: float
     vol: float
 
-    def prompt(self) -> str:
-        """The exact prompt the API would send for these signals."""
-        context = "\n\n".join(retrieve_for_regime(classify(self.rsi, self.mom, self.vol)))
+    def prompt(self, with_context: bool = True) -> str:
+        """The exact prompt the API would send (``with_context=False``: no retrieval)."""
+        regime = classify(self.rsi, self.mom, self.vol)
+        context = "\n\n".join(retrieve_for_regime(regime)) if with_context else None
         return llm.build_prompt(self.ticker, self.rsi, self.mom, self.vol, context)
 
 
@@ -139,7 +141,8 @@ def _numbers_ok(text: str, case: Case) -> tuple[bool, list[str]]:
 def _asserted(text: str, word: str) -> bool:
     """True if ``word`` appears at least once without a hedge just before it."""
     for match in re.finditer(rf"\b{word}\b", text):
-        before = re.findall(r"[a-z']+", text[max(0, match.start() - 40) : match.start()])[-3:]
+        window = text[max(0, match.start() - 60) : match.start()]
+        before = re.findall(r"[a-z']+", window)[-_HEDGE_WINDOW:]
         if not any(token in _HEDGES for token in before):
             return True
     return False
@@ -205,6 +208,9 @@ def rule_based_texts(cases: tuple[Case, ...]) -> dict[str, str]:
 
 DEFAULT_MODEL = "qwen3:32b"
 BASELINE = "rule_based (baseline)"
+# Pass rate at which the minimum detectable effect is reported. At a 100% rate
+# the normal approximation degenerates, so a fixed, stated reference is used.
+MDE_REFERENCE_RATE = 0.95
 
 
 @dataclass(frozen=True)
@@ -230,7 +236,8 @@ def run() -> list[SystemScore]:
     by_id = {c.case_id: c for c in cases}
     baseline = rule_based_texts(cases)
     scores = [SystemScore(BASELINE, tuple(score(baseline[c.case_id], c) for c in cases), 0)]
-    for model, records in cassette.load_all().items():
+    for name, records in cassette.load_all().items():
+        with_context = records[0].variant == cassette.WITH_RETRIEVAL
         current = {r.case_id: r for r in records if r.case_id in by_id}
         verdicts = tuple(
             score(current[c.case_id].text if c.case_id in current else None, c) for c in cases
@@ -239,9 +246,9 @@ def run() -> list[SystemScore]:
             1
             for c in cases
             if c.case_id not in current
-            or current[c.case_id].prompt_sha256 != cassette.prompt_hash(c.prompt())
+            or current[c.case_id].prompt_sha256 != cassette.prompt_hash(c.prompt(with_context))
         )
-        scores.append(SystemScore(model, verdicts, stale))
+        scores.append(SystemScore(name, verdicts, stale))
     return scores
 
 
@@ -262,9 +269,10 @@ def report(scores: list[SystemScore]) -> list[str]:
     models = {s.system: s for s in scores if s.system != BASELINE}
     if DEFAULT_MODEL in models:
         default = models[DEFAULT_MODEL]
-        mde = mde_two_proportions(default.rate().value, default.n)
+        mde = mde_two_proportions(MDE_REFERENCE_RATE, default.n)
         lines.append(
-            f"  MDE vs {DEFAULT_MODEL} at n={default.n} (alpha 0.05, power 0.80): {mde:.1%}"
+            f"  MDE at n={default.n}, two-sided alpha 0.05, power 0.80, around a "
+            f"{MDE_REFERENCE_RATE:.0%} pass rate: {mde * 100:.1f} points"
         )
         for other in [scores[0], *[s for s in models.values() if s is not default]]:
             only_a, only_b, p = _paired(default, other)

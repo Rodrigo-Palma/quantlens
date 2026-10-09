@@ -117,3 +117,8 @@ def test_wrong_volatility_label_fails() -> None:
 def test_elevated_counts_as_high() -> None:
     case = Case("t", "PETR4", rsi=50.0, mom=0.05, vol=0.55)
     assert score("PETR4 is in an uptrend with elevated volatility.", case).checks["vol_label"]
+
+
+def test_coordinated_negation_is_a_hedge() -> None:
+    text = "VALE3 is in a downtrend, without signs of overbought or oversold conditions."
+    assert score(text, _DOWN_NEUTRAL).checks["rsi_label"]
