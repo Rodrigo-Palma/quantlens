@@ -116,13 +116,15 @@ def report(scores: list[GuardrailScore]) -> list[str]:
     return lines
 
 
-def measured(scores: list[GuardrailScore]) -> dict[str, float]:
-    """Gate inputs: v0.6 recall and false-positive rate on every dataset (all languages)."""
-    out: dict[str, float] = {}
+def measured(scores: list[GuardrailScore]) -> dict[str, int]:
+    """Gate inputs: v0.6 counts on every dataset (all languages)."""
+    out: dict[str, int] = {}
     for s in scores:
         if s.system != "v0.6 patterns" or not s.dataset.endswith("/all"):
             continue
         dataset = s.dataset.removesuffix("/all")
-        out[f"guardrail.{dataset}.recall"] = s.recall.value
-        out[f"guardrail.{dataset}.false_positive"] = s.false_positive.value
+        out[f"guardrail.{dataset}.advice_blocked"] = s.recall.successes
+        out[f"guardrail.{dataset}.advice_n"] = s.recall.n
+        out[f"guardrail.{dataset}.clean_blocked"] = s.false_positive.successes
+        out[f"guardrail.{dataset}.clean_n"] = s.false_positive.n
     return out
