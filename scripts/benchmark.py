@@ -76,12 +76,13 @@ def _offline_pipeline() -> str:
 
 
 def _llm_rows() -> list[tuple[str, int, float, float, float]]:
-    """(label, n, p50, p95, max) in seconds per measured model."""
+    """(label, n, p50, p95, max) in seconds per model, read from latency.json."""
     from quantlens.evals import latency
 
     rows = []
     for model, m in sorted(latency.load().items()):
-        label = f"{model} on {m['hardware']}"
+        recorded = str(m["measured_at"])[:10]
+        label = f"{model} on {m['hardware']}, Ollama {m['ollama_version']}, recorded {recorded}"
         rows.append(
             (label, int(str(m["n"])), *(float(str(m[k])) for k in ("p50_s", "p95_s", "max_s")))
         )
@@ -115,7 +116,7 @@ def main() -> None:
         print("|---|---:|---:|---:|")
         for name, p50, p95, p99 in rows:
             print(f"| {name} | {p50:.0f} µs | {p95:.0f} µs | {p99:.0f} µs |")
-        print("\n| LLM call (warm, idle server) | n | p50 | p95 | max |")
+        print("\n| LLM call (recorded, not re-measured here) | n | p50 | p95 | max |")
         print("|---|---:|---:|---:|---:|")
         for label, n, p50, p95, p99 in llm_rows:
             print(f"| {label} | {n} | {p50:.1f} s | {p95:.1f} s | {p99:.1f} s |")
@@ -127,6 +128,7 @@ def main() -> None:
     for name, p50, p95, p99 in rows:
         print(f"{name:42} {p50:8.0f}µ {p95:8.0f}µ {p99:8.0f}µ")
     print("-" * 72)
+    print("LLM latency below is read from evals/data/latency.json, not measured in this run:")
     for label, n, p50, p95, p99 in llm_rows:
         print(f"LLM {label} (n={n}): p50 {p50:.1f}s  p95 {p95:.1f}s  max {p99:.1f}s")
 

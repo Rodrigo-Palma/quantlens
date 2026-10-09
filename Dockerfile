@@ -1,4 +1,6 @@
-FROM python:3.12-slim
+# Base pinned by digest (multi-arch index) so a rebuild gets the same OS layer;
+# Dependabot (docker ecosystem) proposes digest bumps.
+FROM python:3.12-slim@sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
