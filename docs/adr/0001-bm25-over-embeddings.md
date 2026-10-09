@@ -27,8 +27,19 @@ prompt. That was a claim the code did not deliver.
 
 ## Measured (`make evals`)
 
-Free-text set: 32 hand-labeled questions, one relevant section each, mixing
-lexical overlap and paraphrase. 95% Wilson intervals.
+Held-out free-text set (added in v0.7): 60 questions from `gemma4:31b-it-qat`,
+which saw only the section titles, labels reviewed by hand, measured once with
+the glossary and tokenizer frozen. 95% Wilson intervals.
+
+| System | hit@1 | hit@2 | MRR |
+|---|---:|---:|---:|
+| BM25, word tokens (v0.6) | 34/60 = 56.7% [44.1%, 68.4%] | 65.0% | 0.675 |
+| BM25, whitespace tokens (v0.5) | 28/60 = 46.7% [34.6%, 59.1%] | 56.7% | 0.602 |
+| Fixed query (v0.5 API) | 3/60 = 5.0% [1.7%, 13.7%] | 8.3% | 0.189 |
+| Random ranking (expected) | 6.2% | 12.5% | 0.211 |
+
+Dev free-text set: 32 hand-labeled questions written in the same commit as the
+glossary rewrite and the word tokenizer, so in-sample.
 
 | System | hit@1 | hit@2 | MRR |
 |---|---:|---:|---:|
@@ -52,17 +63,20 @@ What these numbers say and do not say:
 
 - BM25 clearly beats the v0.5 fixed query and random (the intervals do not
   overlap). The v0.5 API did no better than random at picking a definition.
-- Word tokens vs whitespace tokens: 81.2% vs 65.6% hit@1, but the intervals
-  overlap at n = 32. Not a demonstrated difference.
+- The in-sample number overstated quality: 81.2% hit@1 on the dev set, 56.7%
+  on questions from another author.
+- Word tokens vs whitespace tokens, exact McNemar on the paired hit@1: 5 vs 0
+  discordant on the dev set (p = 0.06), 7 vs 1 on the held-out set (p = 0.07).
+  Consistent in direction, not a demonstrated difference on either.
 - In a joint query the neutral-RSI section (which mentions 30, 70, overbought
   and oversold) crowds out the volatility section 8 times in 18. Per-signal
   queries fix that by construction.
 - The regime 100% is close to a lookup: the queries are written in the
   glossary's own words, by the same author. It proves the wiring, not
-  retrieval quality. The free-text set is the quality number.
-- The 6 free-text misses are paraphrases with no shared words ("stretched after
-  a big rally") and numeric questions ("volatility of 55% a year"). Lexical
-  retrieval cannot answer those.
+  retrieval quality. The held-out free-text set is the quality number.
+- The misses are paraphrases with no shared words ("stretched after a big
+  rally", "too cheap based on its relative strength") and numeric questions
+  ("volatility of 55% a year"). Lexical retrieval cannot answer those.
 
 ## Alternatives considered
 

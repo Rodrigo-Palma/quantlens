@@ -11,6 +11,7 @@ accepted).
 | [0002](0002-local-first-llm.md) | Local-first LLM via Ollama behind a provider setting; greedy, seeded decoding | Accepted (revised 2026-10) |
 | [0003](0003-rule-based-guardrails-and-fallback.md) | Rule-based EN + PT-BR guardrails and deterministic fallback (not an LLM judge) | Accepted (revised 2026-10) |
 | [0004](0004-offline-deterministic-evals.md) | Offline, deterministic eval harness gated in CI | Superseded by 0005 |
-| [0005](0005-faithfulness-eval-with-cassettes.md) | Faithfulness eval of real LLM output, scored offline from recorded cassettes | Accepted |
+| [0005](0005-faithfulness-eval-with-cassettes.md) | Faithfulness eval of real LLM output, scored offline from recorded cassettes, with a measured checker | Accepted (revised for v0.7) |
+| [0006](0006-exact-count-regression-gates.md) | Regression gates on exact counts, not on interval bounds | Accepted |
 
 These are deliberately small. They exist to show *why*, not to be exhaustive.
