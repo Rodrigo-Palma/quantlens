@@ -13,7 +13,7 @@ from quantlens.config import settings
 from quantlens.data.market import fetch_close
 from quantlens.explain import rule_based
 from quantlens.observability import RequestTrace, configure_logging
-from quantlens.quant import signals
+from quantlens.quant import regime, signals
 
 # RSI(14) needs 15 closes and 20-session momentum needs 21; below that a signal
 # is NaN, which is not valid JSON. Reject the request instead of serving NaN.
@@ -87,8 +87,9 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     if not all(math.isfinite(x) for x in (rsi_value, mom, vol, last)):
         raise HTTPException(status_code=422, detail="signals are undefined for these observations")
 
+    current = regime.classify(rsi_value, mom, vol)
     with trace.stage("retrieve"):
-        context = "\n\n".join(rag.retrieve(f"RSI momentum volatility {symbol}", k=2))
+        context = "\n\n".join(rag.retrieve_for_regime(current))
     with trace.stage("llm"):
         generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
     with trace.stage("guardrail"):
@@ -99,6 +100,7 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
         "explanation_source": source,
         "fallback_reason": _fallback_reason(generated, verdict),
         "guardrail_violations": violations,
+        "regime": [current.rsi, current.trend, current.volatility],
         "llm_provider": settings.llm_provider,
         "llm_model": settings.llm_model,
     }

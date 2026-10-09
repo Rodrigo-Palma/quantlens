@@ -1,0 +1,32 @@
+{"query": "what does an RSI reading above 70 mean", "expected": "Overbought RSI (above 70)"}
+{"query": "the stock looks stretched after a big rally", "expected": "Overbought RSI (above 70)"}
+{"query": "is an overbought reading a sell signal", "expected": "Overbought RSI (above 70)"}
+{"query": "RSI under 30, what does that indicate", "expected": "Oversold RSI (below 30)"}
+{"query": "the shares were hammered and losses piled up recently", "expected": "Oversold RSI (below 30)"}
+{"query": "meaning of oversold", "expected": "Oversold RSI (below 30)"}
+{"query": "RSI around 50", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "neither overbought nor oversold", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "balanced gains and losses over two weeks", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "how is the relative strength index calculated", "expected": "RSI (Relative Strength Index)"}
+{"query": "Wilder smoothing look-back period", "expected": "RSI (Relative Strength Index)"}
+{"query": "trailing 20-session total return", "expected": "Momentum"}
+{"query": "is momentum a forecast", "expected": "Momentum"}
+{"query": "price higher than a month ago", "expected": "Uptrend (positive momentum)"}
+{"query": "positive momentum", "expected": "Uptrend (positive momentum)"}
+{"query": "price is lower than 20 sessions ago", "expected": "Downtrend (negative momentum)"}
+{"query": "the stock has been falling for weeks", "expected": "Downtrend (negative momentum)"}
+{"query": "how do you annualize the standard deviation of daily returns", "expected": "Annualized Volatility"}
+{"query": "square root of 252", "expected": "Annualized Volatility"}
+{"query": "wild price swings and high risk", "expected": "High volatility (above 40% a year)"}
+{"query": "volatility of 55% a year", "expected": "High volatility (above 40% a year)"}
+{"query": "typical risk for a large-cap Brazilian stock", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "volatility around 30% annualized", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "calm and stable price path", "expected": "Low volatility (below 20% a year)"}
+{"query": "volatility of 12% per year", "expected": "Low volatility (below 20% a year)"}
+{"query": "why does the historical price differ from the price that traded", "expected": "Adjusted close"}
+{"query": "dividends and JCP adjustment", "expected": "Adjusted close"}
+{"query": "what is the .SA suffix on Yahoo Finance", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "Brazilian stock exchange in São Paulo", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "selling calls against shares I own", "expected": "Covered Call"}
+{"query": "selling a put with cash reserved to buy the shares", "expected": "Cash-Secured Put"}
+{"query": "is this educational or advice", "expected": "Disclaimer"}
