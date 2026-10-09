@@ -274,14 +274,22 @@ def report(scores: list[SystemScore]) -> list[str]:
             f"  MDE at n={default.n}, two-sided alpha 0.05, power 0.80, around a "
             f"{MDE_REFERENCE_RATE:.0%} pass rate: {mde * 100:.1f} points"
         )
-        for other in [scores[0], *[s for s in models.values() if s is not default]]:
-            only_a, only_b, p = _paired(default, other)
-            lines.append(
-                f"  paired {DEFAULT_MODEL} vs {other.system}: "
-                f"only {DEFAULT_MODEL} passes {only_a}, only other passes {only_b}, "
-                f"exact McNemar p = {p:.3g}"
-            )
+        others = [scores[0], *[s for s in models.values() if s is not default]]
+        lines += [_paired_line(default, other) for other in others]
+    for name, ablated in models.items():
+        base = models.get(name.removesuffix(f" ({cassette.WITHOUT_RETRIEVAL})"))
+        is_ablation = name.endswith(f"({cassette.WITHOUT_RETRIEVAL})")
+        if is_ablation and base is not None and base.system != DEFAULT_MODEL:
+            lines.append(_paired_line(base, ablated))
     return lines
+
+
+def _paired_line(a: SystemScore, b: SystemScore) -> str:
+    only_a, only_b, p = _paired(a, b)
+    return (
+        f"  paired {a.system} vs {b.system}: only the first passes {only_a}, "
+        f"only the second passes {only_b}, exact McNemar p = {p:.3g}"
+    )
 
 
 def failures(scores: list[SystemScore], system: str) -> list[tuple[str, tuple[str, ...]]]:

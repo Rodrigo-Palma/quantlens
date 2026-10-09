@@ -1,15 +1,17 @@
 {
   "faithfulness.baseline.pass_rate": {"min": 0.969},
+  "faithfulness.qwen3:32b (no-rag).stale_prompts": {"max": 0},
   "faithfulness.qwen3:32b.pass_rate": {"min": 0.969},
   "faithfulness.qwen3:32b.stale_prompts": {"max": 0},
+  "faithfulness.qwen3:8b (no-rag).stale_prompts": {"max": 0},
   "faithfulness.qwen3:8b.pass_rate": {"min": 0.906},
   "faithfulness.qwen3:8b.stale_prompts": {"max": 0},
   "retrieval.free_text.bm25.hit_at_1": {"min": 0.647},
   "retrieval.regime.per_signal.recall_at_3": {"min": 1.0},
-  "guardrail.guardrail_dev.recall": {"min": 0.966},
   "guardrail.guardrail_dev.false_positive": {"max": 0.034},
-  "guardrail.guardrail_round1.recall": {"min": 0.954},
+  "guardrail.guardrail_dev.recall": {"min": 0.966},
   "guardrail.guardrail_round1.false_positive": {"max": 0.031},
-  "guardrail.guardrail_round2.recall": {"min": 0.737},
-  "guardrail.guardrail_round2.false_positive": {"max": 0.059}
+  "guardrail.guardrail_round1.recall": {"min": 0.954},
+  "guardrail.guardrail_round2.false_positive": {"max": 0.059},
+  "guardrail.guardrail_round2.recall": {"min": 0.737}
 }
