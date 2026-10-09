@@ -68,6 +68,8 @@ def test_llm_ok_is_served_as_llm(market: object, ollama: Callable[..., None]) ->
     assert body["explanation"] == "PETR4 shows a neutral RSI and moderate volatility."
     assert body["guardrail_violations"] == []
     assert body["ticker"] == "PETR4"
+    assert "last_price" not in body
+    assert body["last_adjusted_close"] > 0
 
 
 def test_llm_advice_falls_back_and_lists_violation(

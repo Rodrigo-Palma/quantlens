@@ -14,8 +14,8 @@ from quantlens.data.market import fetch_close
 from quantlens.explain import rule_based
 from quantlens.quant import signals
 
-st.set_page_config(page_title="QuantLens", page_icon="📈")
-st.title("📈 QuantLens — B3 quant analyst")
+st.set_page_config(page_title="QuantLens")
+st.title("QuantLens: B3 quant analyst")
 st.caption("Educational engineering demo. Not investment advice.")
 
 ticker = st.text_input("B3 ticker", value="PETR4")
@@ -35,5 +35,6 @@ if st.button("Analyze") and ticker:
         col2.metric("Momentum 20d", f"{mom:+.1%}")
         col3.metric("Ann. volatility", f"{vol:.1%}")
 
+        st.caption("Adjusted close (dividends, JCP and splits).")
         st.line_chart(close)
         st.info(rule_based(ticker.upper(), rsi, mom, vol))

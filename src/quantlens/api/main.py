@@ -32,7 +32,9 @@ class HealthResponse(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     ticker: str
-    last_price: float
+    # Close adjusted for dividends, JCP and splits (yfinance auto_adjust=True).
+    # Comparable across distribution dates; not the price that traded that day.
+    last_adjusted_close: float
     rsi: float
     momentum_20d: float
     annualized_volatility: float
@@ -106,7 +108,7 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     }
     return AnalyzeResponse(
         ticker=symbol,
-        last_price=round(last, 2),
+        last_adjusted_close=round(last, 2),
         rsi=round(rsi_value, 1),
         momentum_20d=round(mom, 4),
         annualized_volatility=round(vol, 4),
