@@ -66,9 +66,10 @@ def test_joint_query_is_the_three_signal_queries() -> None:
     assert regime.query() == " ".join(regime.queries())
 
 
-def test_bm25_beats_fixed_and_random_on_free_text() -> None:
+@pytest.mark.parametrize("query_set", sorted(retrieval.QUERY_SETS))
+def test_bm25_beats_fixed_and_random_on_free_text(query_set: str) -> None:
     free, _ = retrieval.run()
-    by_name = {score.system: score for score in free}
+    by_name = {score.system: score for score in free[query_set]}
     bm25 = by_name["bm25 (word tokens)"]
     fixed = by_name["fixed query (v0.5)"]
     h1, _, mrr, _ = retrieval.random_expectation(len(rag.load_chunks()))
@@ -79,5 +80,19 @@ def test_bm25_beats_fixed_and_random_on_free_text() -> None:
 
 def test_report_lists_every_system() -> None:
     text = "\n".join(retrieval.report())
-    for name in ("bm25 per-signal (API)", "fixed query (v0.5)", "random (expected)"):
+    for name in ("bm25 per-signal (API)", "fixed query (v0.5)", "random (expected)", "McNemar"):
         assert name in text
+
+
+def test_tokenizer_test_counts_discordant_pairs() -> None:
+    def _score(system: str, top1: tuple[bool, ...]) -> retrieval.FreeTextScore:
+        rate = retrieval.wilson(sum(top1), len(top1))
+        return retrieval.FreeTextScore(system, rate, rate, 0.0, top1)
+
+    scores = [
+        _score(retrieval.WORD, (True, True, False, True)),
+        _score(retrieval.WHITESPACE, (True, False, True, False)),
+    ]
+    only_word, only_space, p = retrieval.tokenizer_test(scores)
+    assert (only_word, only_space) == (2, 1)
+    assert p == 1.0

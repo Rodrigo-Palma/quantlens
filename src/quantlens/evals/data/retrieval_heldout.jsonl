@@ -1,0 +1,60 @@
+{"query": "What does RSI mean?", "expected": "RSI (Relative Strength Index)"}
+{"query": "How do I measure the speed and change of price movements for a B3 stock?", "expected": "RSI (Relative Strength Index)"}
+{"query": "Relative Strength Index definition", "expected": "RSI (Relative Strength Index)"}
+{"query": "What does it mean when the RSI hits 75?", "expected": "Overbought RSI (above 70)"}
+{"query": "When is a B3 stock considered too expensive based on its strength index?", "expected": "Overbought RSI (above 70)"}
+{"query": "Is the RSI too high if it's over 70?", "expected": "Overbought RSI (above 70)"}
+{"query": "overbought rsi", "expected": "Overbought RSI (above 70)"}
+{"query": "Is this stock considered too cheap based on its relative strength?", "expected": "Oversold RSI (below 30)"}
+{"query": "What does it mean when the RSI is under 30?", "expected": "Oversold RSI (below 30)"}
+{"query": "When is a B3 stock potentially primed for a bounce back because of its RSI level?", "expected": "Oversold RSI (below 30)"}
+{"query": "RSI below 30 meaning", "expected": "Oversold RSI (below 30)"}
+{"query": "What does it mean when the RSI isn't too high or too low?", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "Is an RSI of 50 considered neutral?", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "RSI 30-70 meaning", "expected": "Neutral RSI (between 30 and 70)"}
+{"query": "How do you describe the speed and strength of a price move?", "expected": "Momentum"}
+{"query": "stock price velocity", "expected": "Momentum"}
+{"query": "What does it mean when a B3 stock is moving up consistently?", "expected": "Uptrend (positive momentum)"}
+{"query": "When a share price shows a sustained rise over time, what is that called?", "expected": "Uptrend (positive momentum)"}
+{"query": "If a stock has positive momentum, is it in a 10% uptrend?", "expected": "Uptrend (positive momentum)"}
+{"query": "bullish price trend B3", "expected": "Uptrend (positive momentum)"}
+{"query": "What does it mean when a stock keeps falling?", "expected": "Downtrend (negative momentum)"}
+{"query": "Price movement showing a bearish sequence", "expected": "Downtrend (negative momentum)"}
+{"query": "What happens if a B3 stock has negative momentum over several weeks?", "expected": "Downtrend (negative momentum)"}
+{"query": "Falling price trend", "expected": "Downtrend (negative momentum)"}
+{"query": "What does the yearly price fluctuation percentage mean?", "expected": "Annualized Volatility"}
+{"query": "How is the standard deviation of returns measured over a 12-month period?", "expected": "Annualized Volatility"}
+{"query": "Is a 25% swing over a year considered the annualized volatility?", "expected": "Annualized Volatility"}
+{"query": "Yearly price variation definition", "expected": "Annualized Volatility"}
+{"query": "What happens when a stock's price swings wildly?", "expected": "High volatility (above 40% a year)"}
+{"query": "Which category describes assets with very high price fluctuations?", "expected": "High volatility (above 40% a year)"}
+{"query": "What is a stock called if it moves more than 40% annually?", "expected": "High volatility (above 40% a year)"}
+{"query": "extreme volatility B3", "expected": "High volatility (above 40% a year)"}
+{"query": "What does it mean if a stock is moderately volatile?", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "Which risk category does a stock with a 30% yearly swing fall into?", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "What is the range for medium price fluctuations?", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "Moderate volatility range", "expected": "Moderate volatility (20% to 40% a year)"}
+{"query": "What does it mean if a stock is considered low risk in terms of price swings?", "expected": "Low volatility (below 20% a year)"}
+{"query": "Which category describes a B3 asset with stable price movements?", "expected": "Low volatility (below 20% a year)"}
+{"query": "Is a stock with 15% yearly volatility considered low?", "expected": "Low volatility (below 20% a year)"}
+{"query": "low volatility stocks", "expected": "Low volatility (below 20% a year)"}
+{"query": "Why did my stock price change overnight even though there was no trade?", "expected": "Adjusted close"}
+{"query": "How are dividends and splits factored into historical pricing?", "expected": "Adjusted close"}
+{"query": "If a stock is 100 BRL and pays a 5 BRL dividend, what happens to the closing value?", "expected": "Adjusted close"}
+{"query": "B3 corporate action price correction", "expected": "Adjusted close"}
+{"query": "What is the main stock exchange in Brazil?", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "What does the B3 stand for?", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "Which entity manages the Brazilian stock market?", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "Brasil Bolsa Balcão", "expected": "B3 (Brasil, Bolsa, Balcão)"}
+{"query": "How can I make some extra money from the shares I already own?", "expected": "Covered Call"}
+{"query": "What is the strategy where you sell a call option against your own long position?", "expected": "Covered Call"}
+{"query": "If I hold 100 shares, how does selling a call against them work?", "expected": "Covered Call"}
+{"query": "income generation options strategy", "expected": "Covered Call"}
+{"query": "How do I make money by agreeing to buy a stock at a lower price?", "expected": "Cash-Secured Put"}
+{"query": "What is the strategy where I set aside money to guarantee I can purchase shares if the price drops?", "expected": "Cash-Secured Put"}
+{"query": "If I have R$10,000 in cash, how can I use it to sell a put option safely?", "expected": "Cash-Secured Put"}
+{"query": "cash-backed put strategy", "expected": "Cash-Secured Put"}
+{"query": "Is this financial advice?", "expected": "Disclaimer"}
+{"query": "Who is responsible for losses incurred from using this info?", "expected": "Disclaimer"}
+{"query": "Are there any guarantees that this data is 100% accurate?", "expected": "Disclaimer"}
+{"query": "Terms of use", "expected": "Disclaimer"}
