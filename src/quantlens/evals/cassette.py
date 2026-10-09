@@ -55,6 +55,8 @@ def load_all() -> dict[str, list[Record]]:
     """Every recorded model, keyed by model name, records in file order."""
     root = resources.files("quantlens.evals").joinpath(CASSETTE_DIR)
     out: dict[str, list[Record]] = {}
+    if not root.is_dir():
+        return out
     for entry in sorted(root.iterdir(), key=lambda e: e.name):
         if not entry.name.endswith(".jsonl"):
             continue

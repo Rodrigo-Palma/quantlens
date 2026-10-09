@@ -98,3 +98,8 @@ def test_cassette_round_trip(tmp_path: Path) -> None:
     path = cassette.write("m:1", [record], tmp_path)
     assert path.name == "m-1.jsonl"
     assert path.read_text(encoding="utf-8").count("\n") == 1
+
+
+def test_load_all_without_cassette_dir_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cassette, "CASSETTE_DIR", "data/does-not-exist")
+    assert cassette.load_all() == {}
