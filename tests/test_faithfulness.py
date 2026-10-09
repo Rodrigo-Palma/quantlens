@@ -103,3 +103,17 @@ def test_cassette_round_trip(tmp_path: Path) -> None:
 def test_load_all_without_cassette_dir_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cassette, "CASSETTE_DIR", "data/does-not-exist")
     assert cassette.load_all() == {}
+
+
+def test_wrong_volatility_label_fails() -> None:
+    case = Case("t", "PETR4", rsi=50.0, mom=0.05, vol=0.17)
+    verdict = score(
+        "PETR4 is in an uptrend; volatility of 17% reflects moderate price swings.", case
+    )
+    assert not verdict.checks["vol_label"]
+    assert score("PETR4 is in an uptrend with low volatility.", case).checks["vol_label"]
+
+
+def test_elevated_counts_as_high() -> None:
+    case = Case("t", "PETR4", rsi=50.0, mom=0.05, vol=0.55)
+    assert score("PETR4 is in an uptrend with elevated volatility.", case).checks["vol_label"]

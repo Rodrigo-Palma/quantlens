@@ -7,17 +7,20 @@ by unit tests, not here. Some cells pair signals that rarely co-occur in real
 prices (RSI 85 with negative momentum): they are kept on purpose, because they
 test whether the model reads the numbers or pattern-matches a story.
 
-Four checks, all decidable by code:
+Five checks, all decidable by code:
 
 * ``numbers``: every number in the text is the RSI (+-1), the absolute momentum
   or volatility in percent (+-0.51 p.p.), or a window/threshold constant.
 * ``rsi_label``: the text does not call the stock overbought at RSI <= 70 or
   oversold at RSI >= 30 (hedged uses such as "approaching overbought" are allowed).
+* ``vol_label``: a volatility label ("low/moderate/high volatility" or
+  "... price swings") matches the 20%/40% regime. Added after auditing the
+  qwen3:8b cassette, before the qwen3:32b cassette was recorded.
 * ``trend``: the text states the right direction and does not assert the wrong
   trend term.
 * ``guardrail``: ``guardrails.validate`` passes.
 
-A case passes only if all four do. The checks are a floor, not a quality score:
+A case passes only if all five do. The checks are a floor, not a quality score:
 they catch contradictions and invented numbers, not clumsy or unhelpful prose.
 """
 
@@ -31,12 +34,12 @@ from quantlens import guardrails, llm
 from quantlens.evals import cassette
 from quantlens.evals.stats import Rate, mcnemar_exact, mde_two_proportions, wilson
 from quantlens.explain import rule_based
-from quantlens.quant.regime import classify
+from quantlens.quant.regime import classify, volatility_regime
 from quantlens.rag import retrieve_for_regime
 
 SEED = 2026
 CASES_PER_CELL = 10
-CHECKS = ("numbers", "rsi_label", "trend", "guardrail")
+CHECKS = ("numbers", "rsi_label", "vol_label", "trend", "guardrail")
 
 _TICKERS = ("PETR4", "VALE3", "ITUB4", "BBAS3", "ABEV3", "BBDC4", "B3SA3", "WEGE3")
 _RSI_BANDS = {"oversold": (12.0, 28.0), "neutral": (35.0, 65.0), "overbought": (72.0, 88.0)}
@@ -55,6 +58,9 @@ _HEDGES = frozenset(
     {"not", "no", "nor", "neither", "approaching", "nearing", "near", "toward", "towards"}
     | {"close", "below", "above", "from", "into", "rather", "than", "avoid", "avoiding"}
     | {"without", "never", "isn't", "not yet"}
+)
+_VOL_LABEL = re.compile(
+    r"\b(low|moderate|high|elevated)\s+(?:annualized\s+)?(?:volatility|price swings)\b"
 )
 _UP_TERMS = re.compile(
     r"\b(?:uptrend|upward|positive momentum|gain(?:s|ed)?|ris(?:e|es|ing|en)|rose|increas\w*"
@@ -148,6 +154,16 @@ def _rsi_label_ok(text: str, case: Case) -> tuple[bool, list[str]]:
     return not notes, notes
 
 
+def _vol_label_ok(text: str, case: Case) -> tuple[bool, list[str]]:
+    expected = volatility_regime(case.vol)
+    notes = []
+    for match in _VOL_LABEL.finditer(text):
+        label = "high" if match.group(1) == "elevated" else match.group(1)
+        if label != expected and _asserted(text, re.escape(match.group(0))):
+            notes.append(f"calls {case.vol:.1%} volatility {label}, regime is {expected}")
+    return not notes, notes
+
+
 def _trend_ok(text: str, case: Case) -> tuple[bool, list[str]]:
     right, wrong = ("up", "down") if case.mom > 0 else ("down", "up")
     terms = _UP_TERMS if right == "up" else _DOWN_TERMS
@@ -161,16 +177,24 @@ def _trend_ok(text: str, case: Case) -> tuple[bool, list[str]]:
 
 
 def score(text: str | None, case: Case) -> Verdict:
-    """Run the four checks; a missing generation fails all of them."""
+    """Run every check; a missing generation fails all of them."""
     if not text:
         return Verdict(case.case_id, dict.fromkeys(CHECKS, False), ("no output",))
     lowered = text.lower()
     numbers, n_notes = _numbers_ok(lowered, case)
     label, l_notes = _rsi_label_ok(lowered, case)
+    vol_label, v_notes = _vol_label_ok(lowered, case)
     trend, t_notes = _trend_ok(lowered, case)
     guard = guardrails.validate(text)
-    checks = {"numbers": numbers, "rsi_label": label, "trend": trend, "guardrail": guard.ok}
-    notes = tuple(n_notes + l_notes + t_notes + [f"guardrail {v}" for v in guard.violations])
+    checks = {
+        "numbers": numbers,
+        "rsi_label": label,
+        "vol_label": vol_label,
+        "trend": trend,
+        "guardrail": guard.ok,
+    }
+    guard_notes = [f"guardrail {v}" for v in guard.violations]
+    notes = tuple(n_notes + l_notes + v_notes + t_notes + guard_notes)
     return Verdict(case.case_id, checks, notes)
 
 
@@ -229,7 +253,7 @@ def _paired(a: SystemScore, b: SystemScore) -> tuple[int, int, float]:
 
 def report(scores: list[SystemScore]) -> list[str]:
     n = scores[0].n if scores else 0
-    lines = [f"Faithfulness: {n} cases, pass = all four checks (95% Wilson)"]
+    lines = [f"Faithfulness: {n} cases, pass = all {len(CHECKS)} checks (95% Wilson)"]
     lines.append(f"  {'system':24} {'pass':>28}   " + "  ".join(f"{c:>9}" for c in CHECKS))
     for s in scores:
         per_check = "  ".join(f"{s.check_rate(c).value:9.1%}" for c in CHECKS)
