@@ -3,15 +3,21 @@
 Usage: ``python -m quantlens.evals.record --model qwen3:32b --model qwen3:8b``
 (``make evals-record``). Calls run one at a time so each latency is the cost of a
 single request on an otherwise idle server.
+
+``--missing-only`` keeps every recorded case whose prompt still matches and only
+records the rest (new cases or stale prompts). It refuses to mix generations from
+a different model digest into one cassette.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import platform
 import subprocess
 import time
+from pathlib import Path
 
 import httpx
 
@@ -44,12 +50,35 @@ def _ollama_meta(model: str) -> tuple[str, str]:
     return version, digest
 
 
-def record(model: str, with_context: bool = True) -> list[cassette.Record]:
+def reusable(path: Path, with_context: bool, digest: str) -> dict[str, cassette.Record]:
+    """Recorded cases in ``path`` whose prompt still matches, keyed by case id."""
+    if not path.is_file():
+        return {}
+    lines = path.read_text(encoding="utf-8").splitlines()
+    existing = [cassette.Record(**json.loads(line)) for line in lines if line.strip()]
+    digests = {r.model_digest for r in existing}
+    if digests - {digest}:
+        raise SystemExit(f"{path.name}: recorded with {sorted(digests)}, server has {digest}")
+    prompts = {c.case_id: cassette.prompt_hash(c.prompt(with_context)) for c in build_cases()}
+    return {
+        r.case_id: r
+        for r in existing
+        if r.text is not None and prompts.get(r.case_id) == r.prompt_sha256
+    }
+
+
+def record(
+    model: str, with_context: bool = True, keep: dict[str, cassette.Record] | None = None
+) -> list[cassette.Record]:
     version, digest = _ollama_meta(model)
     machine = hardware()
     variant = cassette.WITH_RETRIEVAL if with_context else cassette.WITHOUT_RETRIEVAL
+    keep = keep or {}
     records = []
     for case in build_cases():
+        if case.case_id in keep:
+            records.append(keep[case.case_id])
+            continue
         prompt = case.prompt(with_context)
         start = time.perf_counter()
         text = llm.generate(prompt, model=model)
@@ -78,12 +107,19 @@ def main() -> None:
     parser.add_argument(
         "--no-context", action="store_true", help="ablation: send the prompt without retrieval"
     )
+    parser.add_argument(
+        "--missing-only", action="store_true", help="only record cases not already recorded"
+    )
     args = parser.parse_args()
     if settings.llm_provider != "ollama":
         raise SystemExit("recording requires LLM_PROVIDER=ollama")
     variant = cassette.WITHOUT_RETRIEVAL if args.no_context else cassette.WITH_RETRIEVAL
     for model in args.model or DEFAULT_MODELS:
-        records = record(model, with_context=not args.no_context)
+        keep = {}
+        if args.missing_only:
+            path = cassette.source_dir() / f"{cassette.slug(model, variant)}.jsonl"
+            keep = reusable(path, not args.no_context, _ollama_meta(model)[1])
+        records = record(model, with_context=not args.no_context, keep=keep)
         path = cassette.write(model, records, variant=variant)
         print(f"wrote {path}")
 
