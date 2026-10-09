@@ -1,37 +1,85 @@
-# ADR 0001 — BM25 lexical retrieval for the RAG baseline
+# ADR 0001: BM25 lexical retrieval, queried by signal regime
 
-**Status:** Accepted · **Date:** 2026-06
+**Status:** Accepted (revised 2026-10 for v0.6) · **Date:** 2026-06
 
 ## Context
 
-The explanation step needs grounding context (definitions of RSI, momentum,
-volatility) so the LLM explains terms accurately instead of hallucinating them.
-The knowledge base is small (a curated glossary, tens of chunks) and the project
-is local-first with a hard "runs offline, no API key, no service to stand up"
-constraint.
+The explanation step needs grounding context (what an RSI above 70 means, what
+a 45% volatility implies) so the LLM explains terms accurately instead of
+inventing them. The knowledge base is a curated glossary of 16 sections and the
+project is local-first: it runs offline, with no API key and no service to
+stand up.
+
+Up to v0.5 the API queried the index with the constant
+`"RSI momentum volatility {ticker}"`. The ticker never matched the glossary, so
+every request got the same two chunks: retrieval that could not change the
+prompt. That was a claim the code did not deliver.
 
 ## Decision
 
-Use **BM25** (`rank-bm25`) over chunks split by `##` heading, with a stable
-`retrieve(query, k)` interface. The index is built once and cached
-(`lru_cache`).
+- Use **BM25** (`rank-bm25`) over chunks split by `##` heading, tokenized into
+  lowercase alphanumeric words (v0.5 split on whitespace, so `"(RSI)"` and
+  `"rsi"` never matched).
+- The glossary has one section per regime: overbought, neutral and oversold RSI,
+  uptrend and downtrend, low, moderate and high volatility.
+- The API maps the signals to a regime (`quant/regime.py`, thresholds 30/70 and
+  20%/40%) and sends **one query per signal**, keeping the top section of each.
+
+## Measured (`make evals`)
+
+Free-text set: 32 hand-labeled questions, one relevant section each, mixing
+lexical overlap and paraphrase. 95% Wilson intervals.
+
+| System | hit@1 | hit@2 | MRR |
+|---|---:|---:|---:|
+| BM25, word tokens (v0.6) | 26/32 = 81.2% [64.7%, 91.1%] | 81.2% | 0.858 |
+| BM25, whitespace tokens (v0.5) | 21/32 = 65.6% [48.3%, 79.6%] | 75.0% | 0.757 |
+| Fixed query (v0.5 API) | 2/32 = 6.2% [1.7%, 20.1%] | 12.5% | 0.219 |
+| Random ranking (expected) | 6.2% | 12.5% | 0.211 |
+
+Regime set: all 18 regimes the API can produce, 3 relevant sections each
+(exhaustive, so no interval). recall@3:
+
+| System | recall@3 |
+|---|---:|
+| BM25, one query per signal (v0.6 API) | 54/54 = 100% |
+| BM25, one joint query, word tokens | 46/54 = 85.2% |
+| BM25, one joint query, whitespace tokens | 48/54 = 88.9% |
+| Fixed query (v0.5 API) | 6/54 = 11.1% |
+| Random ranking (expected) | 18.8% |
+
+What these numbers say and do not say:
+
+- BM25 clearly beats the v0.5 fixed query and random (the intervals do not
+  overlap). The v0.5 API did no better than random at picking a definition.
+- Word tokens vs whitespace tokens: 81.2% vs 65.6% hit@1, but the intervals
+  overlap at n = 32. Not a demonstrated difference.
+- In a joint query the neutral-RSI section (which mentions 30, 70, overbought
+  and oversold) crowds out the volatility section 8 times in 18. Per-signal
+  queries fix that by construction.
+- The regime 100% is close to a lookup: the queries are written in the
+  glossary's own words, by the same author. It proves the wiring, not
+  retrieval quality. The free-text set is the quality number.
+- The 6 free-text misses are paraphrases with no shared words ("stretched after
+  a big rally") and numeric questions ("volatility of 55% a year"). Lexical
+  retrieval cannot answer those.
 
 ## Alternatives considered
 
-- **Sentence-embeddings + vector DB (pgvector / Qdrant).** Better semantic
-  recall on paraphrased queries, but adds a model download, a service or a
-  native dependency, and cold-start cost — for a glossary of tens of chunks the
-  recall gain does not pay for the operational weight, and it breaks the
-  "offline in CI" guarantee.
-- **Naive substring / keyword match.** Zero dependencies, but no term
-  weighting; common words dominate ranking.
+- **Sentence embeddings + vector DB (pgvector / Qdrant).** Would likely recover
+  the paraphrase misses, but adds a model download, a service or a native
+  dependency, and cold-start cost. The API never sends free text, only regime
+  queries, where BM25 already returns the right sections.
+- **Direct lookup by regime, no retrieval.** Equivalent for the API path today
+  and simpler. Retrieval stays because adding a glossary section needs no code
+  change, and because the free-text number above is what a question-answering
+  endpoint would start from. If neither materializes, a lookup table is the
+  honest replacement.
 
 ## Consequences
 
-- ✅ Fully offline, deterministic, microsecond-latency retrieval (see the
-  benchmark table in the README — BM25 p50 ≈ 13 µs).
-- ✅ The `retrieve` signature is stable, so swapping in embeddings later is an
-  internal change with no caller impact.
-- ⚠️ Lexical matching misses semantic paraphrase. **Accepted** at this corpus
-  size; revisit ADR if the knowledge base grows past a few hundred chunks or
-  starts serving free-text user questions.
+- Different regimes ground the prompt with different definitions (tested).
+- Fully offline, deterministic, microsecond-latency retrieval.
+- Revisit if the knowledge base grows past a few hundred sections or the API
+  starts accepting free-text questions: that is where the paraphrase misses
+  would matter.

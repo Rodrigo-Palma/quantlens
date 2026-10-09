@@ -1,38 +1,31 @@
-# ADR 0004 — Offline, deterministic eval harness gated in CI
+# ADR 0004: Offline, deterministic eval harness gated in CI
 
-**Status:** Accepted · **Date:** 2026-06
+**Status:** Superseded by [ADR 0005](0005-faithfulness-eval-with-cassettes.md) (2026-10) · **Date:** 2026-06
 
 ## Context
 
 "Has evals" is cheap to claim and hard to trust. To be worth anything, the eval
 suite has to (a) run on every push, (b) fail the build on a regression, and
-(c) not depend on a network call or a non-deterministic LLM — otherwise CI is
-flaky and the signal is noise.
+(c) not depend on a network call or a non-deterministic LLM.
 
-## Decision
+## Decision (v0.3 to v0.5)
 
-Evaluate the **deterministic rule-based explainer** (the same code used as the
-production fallback) over a small labeled `EVAL_SET`, checking two properties:
-**faithfulness** (the text reflects the input signals — mentions RSI, the right
-trend, volatility) and **guardrail compliance** (no advice phrasing). The runner
-exits non-zero below a 100% pass threshold and is wired into CI.
+Evaluate the deterministic rule-based explainer over a 4-case `EVAL_SET`,
+checking that the text mentions RSI, volatility and the right trend word, and
+that the guardrail passes. Exit non-zero below 100%.
 
-## Alternatives considered
+## Why it was superseded
 
-- **LLM-graded evals (ragas / LLM-as-judge) against the live model.** Higher
-  fidelity to real output quality, but non-deterministic and network-bound —
-  flaky in CI and unable to gate a build reliably. Belongs in a separate,
-  nightly/manual job, not the blocking PR check.
-- **No automated evals.** The README would claim "evals" with nothing enforcing
-  them — exactly the gap this ADR exists to close.
+The checks were written against the output format of the same rule-based
+explainer they evaluated, so 4/4 was guaranteed by construction: the eval
+could only fail if someone edited the template. With n = 4 the 95% Wilson
+interval of 4/4 is [51%, 100%], and it never looked at LLM output, which is the
+part of the system that can actually be wrong.
 
-## Consequences
+What survives in v0.6:
 
-- ✅ A regression in the explanation logic fails CI deterministically and for
-  free (current: 4/4 cases pass).
-- ✅ Because the fallback explainer is what gets evaluated, the property tested
-  is the property shipped in the worst case.
-- ⚠️ This does **not** measure the *LLM's* output quality — only the
-  deterministic floor. Measuring the model itself (faithfulness/grounding
-  scoring of generated text) is the next eval layer and is intentionally kept
-  out of the blocking CI gate. Tracked in the README "next steps".
+- The requirement: offline, deterministic, blocking in CI.
+- The check itself, demoted to a unit test of the explainer
+  (`tests/test_explain.py`).
+- The rule-based explainer, now the **baseline** that the LLM is compared
+  against in ADR 0005, on the same cases and the same checks.
