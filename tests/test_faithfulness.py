@@ -16,11 +16,21 @@ _DOWN_NEUTRAL = Case("t", "VALE3", rsi=50.0, mom=-0.06, vol=0.45)
 
 def test_case_grid_is_seeded_balanced_and_unambiguous() -> None:
     cases = faithfulness.build_cases()
-    assert len(cases) == 120
+    assert len(cases) == 180
     assert cases == faithfulness.build_cases()
-    assert len({c.case_id for c in cases}) == 120
+    assert len({c.case_id for c in cases}) == 180
     assert all(not 28 < c.rsi < 35 and not 65 < c.rsi < 72 for c in cases)
     assert all(abs(c.mom) >= 0.02 for c in cases)
+    assert all(not 18 < c.vol * 100 < 24 and not 36 < c.vol * 100 < 42 for c in cases)
+    moderate = [c for c in cases if "-moderate-" in c.case_id]
+    assert len(moderate) == 60
+    assert all(0.20 < c.vol < 0.40 for c in moderate)
+
+
+def test_v06_cases_keep_their_values() -> None:
+    """The moderate cells come from their own stream: the first 120 cases are unchanged."""
+    first = faithfulness.build_cases()[0]
+    assert (first.case_id, first.ticker, first.rsi) == ("oversold-up-low-00", "VALE3", 17.1)
 
 
 def test_rule_based_baseline_passes_every_check() -> None:
@@ -41,7 +51,7 @@ def test_faithful_text_passes() -> None:
 def test_invented_number_fails_numbers() -> None:
     verdict = score("PETR4 is in an uptrend; RSI 75; volatility 42%.", _UP_OVERBOUGHT)
     assert not verdict.checks["numbers"]
-    assert "unsupported number 42" in verdict.notes
+    assert "unsupported number 42%" in verdict.notes
 
 
 def test_wrong_rsi_label_fails() -> None:
