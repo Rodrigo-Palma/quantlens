@@ -91,7 +91,7 @@ def score(
     )
 
 
-DATASETS = ("guardrail_dev",)
+DATASETS = ("guardrail_dev", "guardrail_round1")
 
 
 def run(datasets: tuple[str, ...] = DATASETS) -> list[GuardrailScore]:
