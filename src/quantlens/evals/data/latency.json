@@ -1,0 +1,22 @@
+{
+  "qwen3:32b": {
+    "hardware": "Apple M3 Max",
+    "max_s": 8.92,
+    "measured_at": "2026-10-09T05:14:55+00:00",
+    "model_digest": "030ee887880fc378860c2dd35101da424377520441ae4bfe7be6deff8ade7840",
+    "n": 30,
+    "ollama_version": "0.35.1",
+    "p50_s": 7.78,
+    "p95_s": 8.86
+  },
+  "qwen3:8b": {
+    "hardware": "Apple M3 Max",
+    "max_s": 2.74,
+    "measured_at": "2026-10-09T05:16:14+00:00",
+    "model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+    "n": 30,
+    "ollama_version": "0.35.1",
+    "p50_s": 2.41,
+    "p95_s": 2.71
+  }
+}

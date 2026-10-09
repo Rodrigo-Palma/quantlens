@@ -44,12 +44,13 @@ def _ollama_meta(model: str) -> tuple[str, str]:
     return version, digest
 
 
-def record(model: str) -> list[cassette.Record]:
+def record(model: str, with_context: bool = True) -> list[cassette.Record]:
     version, digest = _ollama_meta(model)
     machine = hardware()
+    variant = cassette.WITH_RETRIEVAL if with_context else cassette.WITHOUT_RETRIEVAL
     records = []
     for case in build_cases():
-        prompt = case.prompt()
+        prompt = case.prompt(with_context)
         start = time.perf_counter()
         text = llm.generate(prompt, model=model)
         elapsed_ms = (time.perf_counter() - start) * 1000
@@ -64,6 +65,7 @@ def record(model: str) -> list[cassette.Record]:
                 ollama_version=version,
                 hardware=machine,
                 recorded_at=dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+                variant=variant,
             )
         )
         print(f"{model} {case.case_id} {elapsed_ms / 1000:.1f}s", flush=True)
@@ -73,11 +75,16 @@ def record(model: str) -> list[cassette.Record]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", action="append", help="Ollama model (repeatable)")
+    parser.add_argument(
+        "--no-context", action="store_true", help="ablation: send the prompt without retrieval"
+    )
     args = parser.parse_args()
     if settings.llm_provider != "ollama":
         raise SystemExit("recording requires LLM_PROVIDER=ollama")
+    variant = cassette.WITHOUT_RETRIEVAL if args.no_context else cassette.WITH_RETRIEVAL
     for model in args.model or DEFAULT_MODELS:
-        path = cassette.write(model, record(model))
+        records = record(model, with_context=not args.no_context)
+        path = cassette.write(model, records, variant=variant)
         print(f"wrote {path}")
 
 

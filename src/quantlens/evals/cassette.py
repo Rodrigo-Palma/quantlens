@@ -15,6 +15,8 @@ from importlib import resources
 from pathlib import Path
 
 CASSETTE_DIR = "data/cassettes"
+WITH_RETRIEVAL = "rag"
+WITHOUT_RETRIEVAL = "no-rag"
 
 
 @dataclass(frozen=True)
@@ -28,14 +30,21 @@ class Record:
     ollama_version: str
     hardware: str
     recorded_at: str
+    variant: str = WITH_RETRIEVAL
+
+    @property
+    def system(self) -> str:
+        """Display name: the model, plus the variant when it is not the default."""
+        return self.model if self.variant == WITH_RETRIEVAL else f"{self.model} ({self.variant})"
 
 
 def prompt_hash(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
 
-def slug(model: str) -> str:
-    return model.replace(":", "-").replace("/", "-")
+def slug(model: str, variant: str = WITH_RETRIEVAL) -> str:
+    base = model.replace(":", "-").replace("/", "-")
+    return base if variant == WITH_RETRIEVAL else f"{base}.{variant}"
 
 
 def source_dir() -> Path:
@@ -43,8 +52,13 @@ def source_dir() -> Path:
     return Path(__file__).parent / CASSETTE_DIR
 
 
-def write(model: str, records: list[Record], directory: Path | None = None) -> Path:
-    target = (directory or source_dir()) / f"{slug(model)}.jsonl"
+def write(
+    model: str,
+    records: list[Record],
+    directory: Path | None = None,
+    variant: str = WITH_RETRIEVAL,
+) -> Path:
+    target = (directory or source_dir()) / f"{slug(model, variant)}.jsonl"
     target.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(asdict(record), ensure_ascii=False, sort_keys=True) for record in records]
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -52,7 +66,7 @@ def write(model: str, records: list[Record], directory: Path | None = None) -> P
 
 
 def load_all() -> dict[str, list[Record]]:
-    """Every recorded model, keyed by model name, records in file order."""
+    """Every recorded system (model and variant), records in file order."""
     root = resources.files("quantlens.evals").joinpath(CASSETTE_DIR)
     out: dict[str, list[Record]] = {}
     if not root.is_dir():
@@ -63,5 +77,5 @@ def load_all() -> dict[str, list[Record]]:
         lines = entry.read_text(encoding="utf-8").splitlines()
         records = [Record(**json.loads(line)) for line in lines if line.strip()]
         if records:
-            out[records[0].model] = records
+            out[records[0].system] = records
     return out

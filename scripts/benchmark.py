@@ -5,10 +5,10 @@ Two parts:
 * Offline stages (quant signals, BM25 retrieval, rule-based explanation,
   guardrails), timed here with no network and no LLM, so the numbers reproduce
   in CI and on any machine.
-* The LLM call, which dominates a real request. It is not re-run here: its
-  latency is read from the recorded eval cassettes (one Ollama call per case,
-  timed by ``python -m quantlens.evals.record``) and reported per model with the
-  hardware it was recorded on.
+* The LLM call, which dominates a real request. It is not re-run here: it is
+  read from ``evals/data/latency.json``, written by
+  ``python -m quantlens.evals.latency`` (warm model, idle Ollama server,
+  production prompts), and reported per model with its hardware.
 
 Quality (faithfulness, guardrail, retrieval) lives in ``python -m quantlens.evals``.
 
@@ -76,16 +76,15 @@ def _offline_pipeline() -> str:
 
 
 def _llm_rows() -> list[tuple[str, int, float, float, float]]:
-    """(label, n, p50, p95, p99) in seconds per recorded model."""
-    from quantlens.evals import cassette
+    """(label, n, p50, p95, max) in seconds per measured model."""
+    from quantlens.evals import latency
 
     rows = []
-    for name, records in cassette.load_all().items():
-        seconds = [r.latency_ms / 1000 for r in records]
-        if not seconds:
-            continue
-        p50, p95, p99 = _percentiles(seconds)
-        rows.append((f"{name} on {records[0].hardware}", len(seconds), p50, p95, p99))
+    for model, m in sorted(latency.load().items()):
+        label = f"{model} on {m['hardware']}"
+        rows.append(
+            (label, int(str(m["n"])), *(float(str(m[k])) for k in ("p50_s", "p95_s", "max_s")))
+        )
     return rows
 
 
@@ -116,7 +115,7 @@ def main() -> None:
         print("|---|---:|---:|---:|")
         for name, p50, p95, p99 in rows:
             print(f"| {name} | {p50:.0f} µs | {p95:.0f} µs | {p99:.0f} µs |")
-        print("\n| LLM call (recorded) | n | p50 | p95 | p99 |")
+        print("\n| LLM call (warm, idle server) | n | p50 | p95 | max |")
         print("|---|---:|---:|---:|---:|")
         for label, n, p50, p95, p99 in llm_rows:
             print(f"| {label} | {n} | {p50:.1f} s | {p95:.1f} s | {p99:.1f} s |")
@@ -129,7 +128,7 @@ def main() -> None:
         print(f"{name:42} {p50:8.0f}µ {p95:8.0f}µ {p99:8.0f}µ")
     print("-" * 72)
     for label, n, p50, p95, p99 in llm_rows:
-        print(f"LLM {label} (n={n}): p50 {p50:.1f}s  p95 {p95:.1f}s  p99 {p99:.1f}s")
+        print(f"LLM {label} (n={n}): p50 {p50:.1f}s  p95 {p95:.1f}s  max {p99:.1f}s")
 
 
 if __name__ == "__main__":

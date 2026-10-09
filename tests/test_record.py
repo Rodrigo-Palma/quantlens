@@ -49,9 +49,11 @@ def test_main_refuses_non_ollama_provider(monkeypatch: pytest.MonkeyPatch) -> No
 def test_main_records_each_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(record.settings, "llm_provider", "ollama")
     monkeypatch.setattr("sys.argv", ["record", "--model", "m:1"])
-    monkeypatch.setattr(record, "record", lambda model: [])
+    monkeypatch.setattr(record, "record", lambda model, with_context=True: [])
     written: list[str] = []
-    monkeypatch.setattr(record.cassette, "write", lambda model, recs: written.append(model))
+    monkeypatch.setattr(
+        record.cassette, "write", lambda model, recs, variant: written.append(model)
+    )
     record.main()
     assert written == ["m:1"]
 
