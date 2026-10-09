@@ -1,3 +1,3 @@
-"""QuantLens — AI quant analyst for the Brazilian stock market (B3)."""
+"""QuantLens: an evaluated LLM analyst for Brazilian stocks (B3)."""
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"

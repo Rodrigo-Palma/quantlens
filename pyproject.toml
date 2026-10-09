@@ -1,7 +1,7 @@
 [project]
 name = "quantlens"
-version = "0.5.0"
-description = "AI quant analyst for the Brazilian stock market (B3): computes quantitative signals and explains them in natural language."
+version = "0.6.0"
+description = "Evaluated LLM analyst for Brazilian stocks (B3): quant signals, regime retrieval, guardrails and offline evals."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
