@@ -261,11 +261,11 @@ def _paired(a: SystemScore, b: SystemScore) -> tuple[int, int, float]:
 def report(scores: list[SystemScore]) -> list[str]:
     n = scores[0].n if scores else 0
     lines = [f"Faithfulness: {n} cases, pass = all {len(CHECKS)} checks (95% Wilson)"]
-    lines.append(f"  {'system':24} {'pass':>28}   " + "  ".join(f"{c:>9}" for c in CHECKS))
+    lines.append(f"  {'system':24} {'pass':>33}   " + "  ".join(f"{c:>9}" for c in CHECKS))
     for s in scores:
         per_check = "  ".join(f"{s.check_rate(c).value:9.1%}" for c in CHECKS)
         stale = f"  [{s.stale_prompts} stale prompts]" if s.stale_prompts else ""
-        lines.append(f"  {s.system:24} {s.rate()!s:>28}   {per_check}{stale}")
+        lines.append(f"  {s.system:24} {s.rate()!s:>33}   {per_check}{stale}")
     models = {s.system: s for s in scores if s.system != BASELINE}
     if DEFAULT_MODEL in models:
         default = models[DEFAULT_MODEL]

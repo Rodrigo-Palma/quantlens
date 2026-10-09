@@ -1,4 +1,4 @@
-.PHONY: install lint fmt fmt-check type test bench evals evals-record run docker all
+.PHONY: install lint fmt fmt-check type test bench evals evals-record bench-llm run docker all
 
 install:
 	uv sync --locked --extra dev
@@ -24,6 +24,10 @@ evals-record:
 
 bench:
 	uv run python scripts/benchmark.py
+
+# Re-measure LLM latency on a warm model (run with no other load on Ollama).
+bench-llm:
+	LLM_PROVIDER=ollama uv run python -m quantlens.evals.latency --model qwen3:32b --model qwen3:8b --n 30
 
 fmt-check:
 	uv run ruff format --check .
