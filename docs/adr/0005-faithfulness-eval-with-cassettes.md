@@ -1,6 +1,6 @@
 # ADR 0005: Faithfulness eval of real LLM output, scored offline from cassettes
 
-**Status:** Accepted (revised for v0.7) · **Date:** 2026-10
+**Status:** Accepted (revised for v0.7, updated 2026-10) · **Date:** 2026-10
 
 ## Context
 
@@ -157,6 +157,61 @@ Reading:
   and the RSI"), ignored "falls into" as a direction verb, accepted "positive
   trend" / "negative trend", and treated "between overbought and oversold" as a
   hedge. All five had failed correct text.
+
+## Update 2026-10: instruction-only baseline
+
+**Question.** The no-retrieval ablation removes the context altogether, so it
+cannot tell retrieval from instruction: maybe stating the thresholds is
+enough. A third prompt variant, `thresholds` (`llm.build_thresholds_prompt`),
+keeps the same output contract and the same "Reference material" slot but
+fills it with three fixed lines, the RSI 30/70, momentum sign and volatility
+20%/40% conventions, identical for every case and with nothing retrieved. A
+unit test freezes the text. Recorded on 2026-10-16 with
+`make evals-record-thresholds`, same Ollama version (0.35.1) and model
+digests as the other cassettes.
+
+| System | Pass | rsi_label | vol_label | trend |
+|---|---|---:|---:|---:|
+| qwen3:32b, thresholds | 148/180 = 82.2% [76.0%, 87.1%] | 90.0% | 91.7% | 100% |
+| qwen3:8b, thresholds | 172/180 = 95.6% [91.5%, 97.7%] | 100% | 95.6% | 100% |
+
+| A vs B | only A passes | only B passes | exact McNemar p |
+|---|---:|---:|---:|
+| qwen3:32b thresholds vs qwen3:32b (retrieval) | 0 | 32 | 4.7e-10 |
+| qwen3:32b thresholds vs qwen3:32b, no retrieval | 69 | 5 | 1.8e-15 |
+| qwen3:8b thresholds vs qwen3:8b (retrieval) | 5 | 8 | 0.58 |
+| qwen3:8b thresholds vs qwen3:8b, no retrieval | 72 | 3 | 3.7e-18 |
+
+Reading:
+
+- For qwen3:32b retrieval adds something written thresholds do not. The 32
+  failures are the own bands seen without context: "oversold" at RSI 35 to 44
+  (18 cases) and volatility labels off by one regime (15 cases, one case has
+  both), sometimes next to the threshold itself ("16.68%... just below the
+  moderate volatility range" called moderate). Each failure was read by hand.
+  10 of the 32 are hedged ranges ("neutral to slightly oversold", "moderate to
+  high"); counted as passes, the result is 158/180 and still 0 vs 22
+  discordant cases (p = 4.8e-7).
+- For qwen3:8b the two prompts tie at this n. The 8 failures are all
+  volatility labels ("moderate" at 11.7% to 16.5% and at 43.0% to 49.4%).
+- Retrieval here is regime-specific: the passages already name the case's own
+  regime ("Low volatility (below 20% a year)"). So the measured gain is from
+  handing the model the definition of its own case, which a prompt carrying a
+  regime label computed in code could also do without retrieval. That variant
+  is not tested.
+- Not scored by the checks: outputs that mention a rebound, pullback,
+  correction, reversal or bounce (a lexical count, not reviewed one by one)
+  are 0/180 for qwen3:32b with retrieval, 96/180 with thresholds and 77/180
+  without context; for qwen3:8b 9, 41 and 57. The glossary passages say an RSI
+  extreme "is not a forecast"; the thresholds lines do not.
+
+**Checker change made after reading these outputs**, applied to every
+system: a two-sided phrase ("both upward and downward movement") is no longer
+a direction claim. It failed 9 correct qwen3:8b thresholds outputs (163/180
+before, 172/180 after) and appears in no other cassette, so no other count
+moved. The thresholds cassettes are scored but kept out of the checker audit's
+mutation pool (`checker_audit.AUDIT_VARIANTS`), so the audit counts above still
+describe the four rag/no-rag cassettes.
 
 ## Alternatives considered
 

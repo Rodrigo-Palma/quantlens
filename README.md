@@ -20,8 +20,10 @@ CI); latencies by `make bench`. Intervals are 95% Wilson.
 | What | System | Result |
 |---|---|---|
 | Faithfulness of the explanation, 180 cases (all 18 signal regimes), 5 code checks | **qwen3:32b (default)** | **180/180 = 100%** [97.9%, 100%] |
+| | qwen3:32b, thresholds written in the prompt, no retrieval | 148/180 = 82.2% [76.0%, 87.1%] |
 | | qwen3:32b without retrieval | 84/180 = 46.7% [39.5%, 53.9%] |
 | | qwen3:8b | 175/180 = 97.2% [93.7%, 98.8%] |
+| | qwen3:8b, thresholds written in the prompt, no retrieval | 172/180 = 95.6% [91.5%, 97.7%] |
 | | qwen3:8b without retrieval | 103/180 = 57.2% [49.9%, 64.2%] |
 | | rule-based template (baseline) | 180/180 = 100% [97.9%, 100%] |
 | Checker recall: errors planted in correct outputs by another model (labels, trend) | **v0.7 checker** | **91/96 = 94.8%** [88.4%, 97.8%] |
@@ -42,8 +44,19 @@ What the table supports:
 - **Retrieval keeps the LLM on the system's conventions.** Without the
   retrieved definitions qwen3:32b passes 84 of 180 cases instead of 180
   (exact McNemar p = 2.5e-29): it applies its own bands, calling RSI 35 to 43
-  "oversold", 60 to 64 "overbought" and a 15% volatility "moderate". A prompt
-  that states the thresholds directly was not tested and might do as well.
+  "oversold", 60 to 64 "overbought" and a 15% volatility "moderate".
+- **Writing the thresholds in the prompt recovers most of that, not all.**
+  With the 30/70 and 20%/40% thresholds stated in the same prompt slot and
+  nothing retrieved, qwen3:32b passes 148/180: better than no context (69 vs 5
+  discordant cases, p = 1.8e-15) and worse than retrieval (0 vs 32, p =
+  4.7e-10). Its failures are the same own-band labels (RSI 35 to 44
+  "oversold", 12% to 18% volatility "moderate"); 10 of the 32 are hedged
+  ranges such as "neutral to slightly oversold", and counting those as passes
+  still leaves 0 vs 22 (p = 4.8e-7). For qwen3:8b the thresholds prompt ties
+  retrieval: 172/180 vs 175/180, 5 vs 8 discordant cases, p = 0.58. The
+  retrieved passages are regime-specific, so what qwen3:32b needs is the
+  definition of the case's own regime, not the general rule; on the API path
+  retrieval delivers that by regime lookup.
 - **The checker is measured, not assumed.** The v0.6 checker passed text with
   the momentum sign inverted, momentum and volatility swapped, or invented
   "30%"/"40%" figures. The v0.7 checker binds every number to its signal and
@@ -151,7 +164,9 @@ Five code checks per output: every number is the value of the signal it is
 written next to, with the right sign; the RSI and volatility labels do not
 contradict the values; no trend term or direction verb contradicts the
 momentum; and the guardrail passes. Each model is also recorded without the
-retrieved context, to measure what retrieval contributes. Model outputs were
+retrieved context, and with the thresholds written in the prompt instead of
+it (`make evals-record-thresholds`), to separate what retrieval contributes
+from what plain instructions would. Model outputs were
 recorded against Ollama (`make evals-record`) into versioned cassettes with the
 model digest, hardware and latency, so CI scores real generations without a
 GPU. A cassette whose prompts no longer match the code fails the gate.
@@ -261,9 +276,15 @@ against Ollama's `/v1` endpoint, not against a hosted vendor.
   out-of-sample recall for it. It only
   reads above/below-style words followed by a threshold (20, 30, 40, 50, 70)
   about RSI or volatility.
-- **The retrieval ablation does not isolate retrieval from instructions.** A
-  prompt that simply states the 30/70 and 20%/40% thresholds was not tested;
-  it might match retrieval with less machinery.
+- **Retrieval beats written thresholds for one model of two.** qwen3:32b
+  passes 180/180 with retrieval and 148/180 with the thresholds written in
+  the prompt; qwen3:8b passes 175/180 and 172/180, a tie at this n (p =
+  0.58). The retrieved passages name the case's own regime, so the untested
+  middle ground is a prompt that states the regime label computed in code,
+  with no retrieval at all. The checks also do not score forecast language:
+  outputs that mention a rebound, pullback, correction, reversal or bounce (a
+  lexical count) are 0/180 for qwen3:32b with retrieval, 96/180 with the
+  thresholds prompt and 77/180 with no context.
 - **Cases are synthetic.** The grid covers all 18 regimes but avoids values
   near the thresholds (volatility 18% to 24% and 36% to 42%, RSI 28 to 35 and
   65 to 72), where a label is ambiguous, and includes signal pairs that rarely

@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Instruction-only baseline for the faithfulness eval: prompt variant
+  `thresholds` (`llm.build_thresholds_prompt`) with the 30/70 and 20%/40%
+  thresholds written in the reference slot and nothing retrieved; recorder
+  flag `--variant`, `make evals-record-thresholds`, and paired McNemar lines
+  against the RAG and no-rag prompts of each model. qwen3:32b passes 148/180
+  (vs 180/180 with retrieval, 0 vs 32 discordant, p = 4.7e-10); qwen3:8b
+  passes 172/180 (vs 175/180, 5 vs 8, p = 0.58). Recorded in ADR 0005.
 - Rate limit on `/analyze`: an in-memory token bucket per client address
   (`RATE_LIMIT_PER_MIN`, `RATE_LIMIT_BURST`), checked before the market data
   fetch, so unknown tickers spend a token too. Past it the API answers 429 with
@@ -27,6 +34,11 @@ All notable changes to this project are documented here. The format follows
   before a threshold). It applies to 4 of the 542 passing recorded outputs:
   0/4 caught before the check, 4/4 after (in-sample). Read by hand, 19 of the
   720 recorded outputs compare a signal with a threshold and none is inverted.
+
+### Fixed
+- Faithfulness checker: a two-sided phrase ("both upward and downward
+  movement") is no longer read as a direction claim. It failed 9 correct
+  qwen3:8b outputs of the thresholds baseline and occurs in no other cassette.
 
 ### Security
 - CI token limited to `contents: read`; `actions/checkout` and
