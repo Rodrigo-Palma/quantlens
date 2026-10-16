@@ -71,7 +71,7 @@ def client_address(peer: str, forwarded_for: str | None, trusted_proxies: str) -
     be spoofed. Without trusted proxies the peer is used, so behind a proxy every
     client shares the proxy's bucket.
     """
-    networks = _parse_networks(trusted_proxies)
+    networks = parse_networks(trusted_proxies)
     if not networks or not _is_trusted(peer, networks):
         return peer
     hops = [hop.strip() for hop in (forwarded_for or "").split(",") if hop.strip()]
@@ -90,7 +90,7 @@ def _is_trusted(address: str, networks: tuple[_Network, ...]) -> bool:
 
 
 @lru_cache(maxsize=8)
-def _parse_networks(trusted_proxies: str) -> tuple[_Network, ...]:
+def parse_networks(trusted_proxies: str) -> tuple[_Network, ...]:
     entries = [entry.strip() for entry in trusted_proxies.split(",") if entry.strip()]
     try:
         return tuple(ipaddress.ip_network(entry, strict=False) for entry in entries)

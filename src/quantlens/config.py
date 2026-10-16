@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from quantlens.ratelimit import parse_networks
 
 
 class Settings(BaseSettings):
@@ -42,6 +44,13 @@ class Settings(BaseSettings):
     # LLM calls in flight at once; a request past it gets the rule-based
     # explanation instead of waiting.
     llm_max_concurrency: int = Field(default=2, gt=0)
+
+    @field_validator("trusted_proxies")
+    @classmethod
+    def _trusted_proxies_are_networks(cls, value: str) -> str:
+        # Fail at startup, not as a 500 on the first /analyze.
+        parse_networks(value)
+        return value
 
 
 settings = Settings()

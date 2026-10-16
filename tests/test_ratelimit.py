@@ -151,6 +151,16 @@ def test_malformed_trusted_proxies_fail_clearly() -> None:
         client_address("10.0.0.1", "203.0.113.9", "not-an-ip")
 
 
+@pytest.mark.parametrize("value", ["not-an-ip", "10.0.0.0/33", "10.0.0.1, 10.0.0"])
+def test_settings_reject_malformed_trusted_proxies(value: str) -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_PROXIES"):
+        Settings(trusted_proxies=value)
+
+
+def test_settings_accept_trusted_proxies() -> None:
+    assert Settings(trusted_proxies="10.0.0.1, 192.168.0.0/16, ::1").trusted_proxies
+
+
 @pytest.mark.parametrize(
     "field",
     ["rate_limit_per_min", "rate_limit_burst", "rate_limit_max_clients", "llm_max_concurrency"],
