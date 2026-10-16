@@ -230,17 +230,23 @@ class AuditScore:
 # on. Later baselines (the ``thresholds`` prompt) are scored, not mutated, so
 # adding one does not move the audit counts.
 AUDIT_VARIANTS = (cassette.WITH_RETRIEVAL, cassette.WITHOUT_RETRIEVAL)
+# The thresholds runs compare a signal with a threshold far more often than the
+# audit pool, and were recorded after the comparison check was written. Their
+# comparison_flip recall is a separate row, so the pooled counts do not move.
+THRESHOLDS_FLIP_LABEL = "comparison_flip, thresholds"
+_THRESHOLDS_FLIP_KEY = "comparison_flip_thresholds"
+_LABEL_WIDTH = 28
 
 
-def sources() -> list[tuple[str, Case]]:
-    """Distinct recorded LLM outputs (audit variants only) that the checker passes."""
+def sources(variants: tuple[str, ...] = AUDIT_VARIANTS) -> list[tuple[str, Case]]:
+    """Distinct recorded LLM outputs of ``variants`` that the checker passes."""
     by_id = {c.case_id: c for c in build_cases()}
     seen: set[str] = set()
     out = []
     for records in cassette.load_all().values():
         for record in records:
             case = by_id.get(record.case_id)
-            if record.variant not in AUDIT_VARIANTS:
+            if record.variant not in variants:
                 continue
             if case is None or not record.text or record.text in seen:
                 continue
@@ -277,12 +283,20 @@ def run() -> list[AuditScore]:
             caught = sum(not score(text, case).passed for text, case in planted)
             scores.append(AuditScore(HELDOUT_KINDS[kind], name, wilson(caught, len(planted))))
     for kind in MUTATIONS:
-        mutated = [(m, case) for text, case in pool if (m := mutate(kind, text, case))]
-        if not mutated:
-            continue
-        for name, score in CHECKERS.items():
-            caught = sum(not score(text, case).passed for text, case in mutated)
-            scores.append(AuditScore(kind, name, wilson(caught, len(mutated))))
+        scores += _mutation_scores(kind, kind, pool)
+    flip_pool = sources((cassette.THRESHOLDS,))
+    scores += _mutation_scores("comparison_flip", THRESHOLDS_FLIP_LABEL, flip_pool)
+    return scores
+
+
+def _mutation_scores(kind: str, label: str, pool: list[tuple[str, Case]]) -> list[AuditScore]:
+    mutated = [(m, case) for text, case in pool if (m := mutate(kind, text, case))]
+    if not mutated:
+        return []
+    scores = []
+    for name, score in CHECKERS.items():
+        caught = sum(not score(text, case).passed for text, case in mutated)
+        scores.append(AuditScore(label, name, wilson(caught, len(mutated))))
     return scores
 
 
@@ -292,11 +306,11 @@ def report(scores: list[AuditScore]) -> list[str]:
         f"({len(sources())} source texts, 95% Wilson)"
     ]
     names = list(CHECKERS)
-    lines.append(f"  {'mutation':26} " + " ".join(f"{n:>34}" for n in names))
-    for kind in (*MUTATIONS, *HELDOUT_KINDS.values()):
+    lines.append(f"  {'mutation':{_LABEL_WIDTH}} " + " ".join(f"{n:>34}" for n in names))
+    for kind in (*MUTATIONS, THRESHOLDS_FLIP_LABEL, *HELDOUT_KINDS.values()):
         row = {s.checker: s.recall for s in scores if s.mutation == kind}
         if row:
-            lines.append(f"  {kind:26} " + " ".join(f"{row[n]!s:>34}" for n in names))
+            lines.append(f"  {kind:{_LABEL_WIDTH}} " + " ".join(f"{row[n]!s:>34}" for n in names))
     return lines
 
 
@@ -305,6 +319,7 @@ def measured(scores: list[AuditScore]) -> dict[str, int]:
     for s in scores:
         if s.checker == "v0.7 checker":
             labels = {label: f"heldout_{kind}" for kind, label in HELDOUT_KINDS.items()}
+            labels[THRESHOLDS_FLIP_LABEL] = _THRESHOLDS_FLIP_KEY
             key = labels.get(s.mutation, s.mutation)
             out[f"checker_audit.{key}.caught"] = s.recall.successes
             out[f"checker_audit.{key}.n"] = s.recall.n

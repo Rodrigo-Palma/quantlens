@@ -130,3 +130,43 @@ def test_numeric_heldout_batch_is_labeled_by_what_it_contains() -> None:
     }
     assert failed == {"trend"}
     assert checker_audit.HELDOUT_KINDS["numeric"] == "planted, trend direction"
+
+
+def test_thresholds_outputs_are_a_separate_comparison_flip_row() -> None:
+    """The thresholds runs compare signals with thresholds far more often than the
+    audit pool; their comparison_flip recall is reported apart, not pooled."""
+    scores = checker_audit.run()
+    pooled = {s.checker: s.recall for s in scores if s.mutation == "comparison_flip"}
+    apart = {
+        s.checker: s.recall for s in scores if s.mutation == checker_audit.THRESHOLDS_FLIP_LABEL
+    }
+    assert set(apart) == set(checker_audit.CHECKERS)
+    assert apart["v0.7 checker"].n > pooled["v0.7 checker"].n
+    assert any(checker_audit.THRESHOLDS_FLIP_LABEL in line for line in checker_audit.report(scores))
+    measured = checker_audit.measured(scores)
+    assert measured["checker_audit.comparison_flip_thresholds.n"] == apart["v0.7 checker"].n
+    assert measured["checker_audit.comparison_flip.n"] == pooled["v0.7 checker"].n
+
+
+def test_sources_can_read_only_the_thresholds_cassettes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from quantlens.evals import cassette
+    from quantlens.evals.cases import build_cases
+
+    case = build_cases()[0]
+    text = (
+        f"{case.ticker} is in an uptrend, with momentum of {case.mom:.2%}. "
+        f"Its RSI of {case.rsi:.0f} is oversold, and volatility of {case.vol:.2%} is low."
+    )
+
+    def _rec(variant: str, body: str) -> cassette.Record:
+        return cassette.Record(case.case_id, "m:1", body, 1.0, "h", "d", "0", "hw", "x", variant)
+
+    monkeypatch.setattr(
+        cassette,
+        "load_all",
+        lambda: {
+            "m:1": [_rec(cassette.WITH_RETRIEVAL, text)],
+            "m:1 (thresholds)": [_rec(cassette.THRESHOLDS, text + " Calm.")],
+        },
+    )
+    assert checker_audit.sources((cassette.THRESHOLDS,)) == [(text + " Calm.", case)]

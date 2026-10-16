@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Checker audit row `comparison_flip, thresholds`: the above/below swap applied
+  to the passing thresholds-prompt outputs, which were recorded after the
+  comparison check and are kept out of the mutation pool. The v0.7 checker
+  catches 28/28 (95% Wilson [87.9%, 100%]), the v0.6 checker 0/28; gated at
+  28 of 28. The README now says that its counts of 720 outputs are the rag and
+  no-rag runs, not all 1080 recorded.
+
 ### Fixed
 - `/analyze` with a fractional ticker (`PETR4F`) always answered 422 ("need at
   least 21 observations, got 1") after a network fetch, because Yahoo returns

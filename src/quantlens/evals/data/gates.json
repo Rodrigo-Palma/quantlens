@@ -37,6 +37,8 @@
   "checker_audit.vol_label_swap.n": {"eq": 367},
   "checker_audit.comparison_flip.caught": {"min": 4},
   "checker_audit.comparison_flip.n": {"eq": 4},
+  "checker_audit.comparison_flip_thresholds.caught": {"min": 28},
+  "checker_audit.comparison_flip_thresholds.n": {"eq": 28},
   "checker_audit.heldout_any.caught": {"min": 59},
   "checker_audit.heldout_any.n": {"eq": 64},
   "checker_audit.heldout_numeric.caught": {"min": 32},

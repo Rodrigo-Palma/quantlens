@@ -65,18 +65,23 @@ What the table supports:
   risk"); on the 8 original mutation types of the recorded outputs it catches
   99.2% to 100%. The planted errors were all labels or trend terms: no out-of-sample
   error touched a figure, so the number and sign checks are measured only by
-  the in-sample mutations. Re-scoring the 720 recorded
+  the in-sample mutations. Re-scoring the 720 rag and no-rag
   outputs with it found no number, sign or direction error; it only adds
   volatility labels phrased as "price fluctuations", all in the no-retrieval
   runs.
-- **Inverted threshold comparisons are rare in the recorded outputs.** Read by
-  hand, 19 of the 720 compare a signal with a threshold: 4 with above/below
+- **Inverted threshold comparisons are rare in the rag and no-rag outputs.**
+  Read by hand, 19 of those 720 (the 360 thresholds-prompt outputs are not in
+  this count) compare a signal with a threshold: 4 with above/below
   (volatility "below 20%" three times, "above 50%" once) and 15 with "within
   the 30-70 range"; all from qwen3:32b with retrieval, and none inverted. The
   checker now fails a comparison that is false for the signal ("RSI 75, below
   70"); the `comparison_flip` mutation, which swaps above/below on those 4
   outputs, went from 0/4 caught to 4/4. That is in-sample and n = 4 (95%
-  Wilson [51.0%, 100%]); the 91/96 out-of-sample recall is unchanged.
+  Wilson [51.0%, 100%]); the 91/96 out-of-sample recall is unchanged. The
+  thresholds-prompt runs, recorded after the check was written and scored but
+  not used to build it, compare far more often: the same swap on the 28
+  passing thresholds outputs that hold an above/below comparison is caught
+  28/28 (95% Wilson [87.9%, 100%]), reported as a separate row.
 - **The LLM does not beat the template on these checks.** qwen3:32b ties the
   rule-based baseline at 180/180: both are at the ceiling, so this eval cannot
   rank them. What the LLM adds is readable prose, which these checks do not
@@ -296,9 +301,11 @@ against Ollama's `/v1` endpoint, not against a hosted vendor.
   holds the momentum figure. Their recall is measured only on the error types
   in the audit; the v0.7 checker was also tuned on the same recorded outputs it
   scores.
-- **The threshold-comparison check is measured in-sample on 4 texts.** It
-  catches 4/4 above/below swaps (95% Wilson [51.0%, 100%]), but the mutation
-  and the check were written by the same author. Of the 96 held-out errors, 2
+- **The threshold-comparison check is measured on 4 in-sample texts and 28
+  thresholds-prompt texts.** It catches 4/4 above/below swaps in the audit
+  pool (95% Wilson [51.0%, 100%]) and 28/28 in the thresholds outputs recorded
+  after it ([87.9%, 100%]), but the mutation and the check were written by the
+  same author. Of the 96 held-out errors, 2
   carry an inverted comparison ("RSI 38, below 30", "RSI 64, above 70"), and
   both were already caught by the RSI label check, so there is no separate
   out-of-sample recall for it. It only
