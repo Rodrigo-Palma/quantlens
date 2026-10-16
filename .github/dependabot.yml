@@ -1,6 +1,7 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # "uv" reads uv.lock; "pip" only saw the pyproject.toml ranges.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
