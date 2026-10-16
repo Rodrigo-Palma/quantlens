@@ -47,7 +47,8 @@ kept verbatim in `checks_v06.py` as the baseline of the audit below.
 - Mutations of every correct recorded output, one error at a time: sign flip,
   swapped figures, invented value (+9 points), invented constant (30% or
   40%), inverted direction terms, a wrong direction verb with no trend term,
-  swapped RSI label, swapped volatility label. Designed together with the v0.7
+  swapped RSI label, swapped volatility label, a threshold comparison flipped
+  ("17.06%, below 20%" -> "above 20%"). Designed together with the v0.7
   checker, so in-sample.
 - Errors planted by `gemma4:31b-it-qat` in 96 correct outputs of qwen3:32b and
   qwen3:8b (`scripts/generate_checker_errors.py`): it saw the true signals and
@@ -65,7 +66,7 @@ fallback) as the baseline, `qwen3:32b` (production default) and `qwen3:8b`
 seeded, reasoning off ([ADR 0002](0002-local-first-llm.md)).
 
 **Cassettes instead of live calls in CI.** `make evals-record` sends every case
-to a local Ollama server once and writes one JSONL per model with the text, the
+to a local Ollama server once and writes one JSONL per model and variant with the text, the
 call latency, the prompt hash, the model digest, the Ollama version and the
 hardware. CI scores the cassettes offline. If the prompt or the retrieval
 changes, the prompt hashes stop matching, the report flags the cassette as
@@ -73,7 +74,7 @@ stale and the gate fails until it is re-recorded.
 
 **Statistics.** Pass rates with 95% Wilson intervals; the minimum detectable
 effect at this n (two-sided 5%, power 80%); systems compared with an exact
-McNemar test on the paired cases, since every system sees the same 120.
+McNemar test on the paired cases, since every system sees the same 180.
 
 **Latency is measured separately.** Cassette latencies were taken while other
 processes shared the GPU (qwen3:8b looked slower than qwen3:32b), so they are
@@ -121,12 +122,16 @@ Checker recall (share of known-wrong texts it fails):
 | wrong direction verb, no trend term | 483 | 34.0% | 100% |
 | RSI label swapped | 537 | 98.0% | 100% |
 | volatility label swapped | 367 | 87.7% | 99.2% |
+| threshold comparison flipped (above <-> below) | 4 | 0% | 100% |
+| threshold comparison flipped, thresholds-prompt outputs | 28 | 0% | 100% |
 | planted by gemma4, error of its choice | 64 | 24/64 = 37.5% | 59/64 = 92.2% [83.0%, 96.6%] |
-| planted by gemma4, figure, sign or direction | 32 | 32/32 = 100% | 32/32 = 100% [89.3%, 100%] |
+| planted by gemma4, trend direction | 32 | 32/32 = 100% | 32/32 = 100% [89.3%, 100%] |
 
 The mutations run on the 542 distinct correct outputs across the four
-cassettes; n differs per row because a mutation applies only where the text has
-the thing to mutate. Both planted batches came out narrow: left to choose,
+cassettes with and without retrieval; n differs per row because a mutation
+applies only where the text has the thing to mutate. The thresholds-prompt
+outputs stay out of that pool and get their own comparison row, since they
+compare a signal with a threshold far more often. Both planted batches came out narrow: left to choose,
 gemma4 changed an RSI or volatility label every time, and asked for a figure,
 sign or direction error it swapped "uptrend" and "downtrend" every time. So
 the out-of-sample recall covers labels and trend terms; the number and sign

@@ -73,8 +73,11 @@ What this says:
   request, and the violation is visible in the response and the request log.
 - Roughly 1 in 5 advice sentences of an unseen style still passes (round 2).
   The prompt also forbids advice, so the guardrail is a second line, not the
-  only one. In the 480 recorded LLM explanations
-  ([ADR 0005](0005-faithfulness-eval-with-cassettes.md)) the guardrail fired 0
-  times: with this prompt, neither model produced advice the rules recognize.
-- CI fails if recall on any set drops below its recorded Wilson lower bound or
-  the false-positive rate rises above its upper bound.
+  only one. In the 1080 recorded LLM explanations (720 with and without
+  retrieval, 360 with the thresholds prompt;
+  [ADR 0005](0005-faithfulness-eval-with-cassettes.md)) the guardrail fired 0
+  times: with these prompts, neither model produced advice the rules recognize.
+- CI gates the guardrail on exact counts
+  ([ADR 0006](0006-exact-count-regression-gates.md)): it fails if the advice
+  sentences blocked on any set drop below the recorded count (87/106 on round 2)
+  or the clean sentences blocked rise above it (2/120 on round 2).

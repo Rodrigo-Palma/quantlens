@@ -50,7 +50,8 @@ What the table supports:
   nothing retrieved, qwen3:32b passes 148/180: better than no context (69 vs 5
   discordant cases, p = 1.8e-15) and worse than retrieval (0 vs 32, p =
   4.7e-10). Its failures are the same own-band labels (RSI 35 to 44
-  "oversold", 12% to 18% volatility "moderate"); 10 of the 32 are hedged
+  "oversold") and volatility labels one regime off (12% to 18% "moderate",
+  34% to 35% "high"); 10 of the 32 are hedged
   ranges such as "neutral to slightly oversold", and counting those as passes
   still leaves 0 vs 22 (p = 4.8e-7). For qwen3:8b the thresholds prompt ties
   retrieval: 172/180 vs 175/180, 5 vs 8 discordant cases, p = 0.58. The
@@ -161,8 +162,8 @@ A response:
 `last_adjusted_close` is adjusted for dividends, JCP and splits, so returns are
 comparable across distribution dates; it is not the price that traded.
 
-Each request writes one JSON log line with a request id (also returned as
-`X-Request-ID`), the latency of every stage and why a fallback happened (this
+Each `/analyze` request that passes query validation writes one JSON log line
+with a request id (also returned as `X-Request-ID`), the latency of every stage and why a fallback happened (this
 one is the cold first request of a server; warm LLM calls are in the table):
 
 ```json

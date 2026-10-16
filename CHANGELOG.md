@@ -31,6 +31,25 @@ All notable changes to this project are documented here. The format follows
 - The README and the 0.8.0 entry below pointed to
   `evals/data/adjudications.jsonl`, which does not exist at the repository
   root; the file is `src/quantlens/evals/data/adjudications.jsonl`, now linked.
+- The Streamlit demo fetched `PETR4F` as is and printed a "downtrend"
+  explanation with NaN signals for it (one row from Yahoo); any short or flat
+  series did the same. The API and the demo now share `quant.snapshot`
+  (minimum observations, finite signals) and `data.market.market_symbol`, so
+  the demo maps `PETR4F` to `PETR4` and shows an error where the API answers 422.
+- The benchmark said LLM latency is read from `evals/data/latency.json`; the
+  file is `src/quantlens/evals/data/latency.json`.
+- Docs that drifted from the code: ADR 0003 still described Wilson-bound gates
+  (the gates are exact counts, ADR 0006) and 480 recorded explanations (1080);
+  ADR 0005 said 120 cases, one cassette per model, omitted the
+  `comparison_flip` rows and kept the old held-out label; the README called
+  qwen3:32b's thresholds volatility failures all "moderate" (3 of 15 are 34% to
+  35% called "high") and said every request is logged (a 422 from query
+  validation is not); CONTRIBUTING described `make all` as lint, types and
+  tests only.
+
+### Changed
+- The pre-commit ruff hooks run `uv run --locked ruff` instead of pinning
+  ruff-pre-commit v0.6.9, so they use the locked ruff (0.17.1) that CI uses.
 
 ## [0.8.0] - 2026-10-16
 
