@@ -9,7 +9,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from quantlens.evals import checker_audit, faithfulness, gates, guardrail, retrieval
+from quantlens.evals import (
+    adjudication,
+    checker_audit,
+    faithfulness,
+    gates,
+    guardrail,
+    retrieval,
+)
 
 
 def measure() -> tuple[list[str], dict[str, int]]:
@@ -20,6 +27,7 @@ def measure() -> tuple[list[str], dict[str, int]]:
     lines += checker_audit.report(audit_scores)
     lines += guardrail.report(guard_scores)
     lines += retrieval.report()
+    lines += adjudication.report()  # secondary, never gated
     measured = {
         **faithfulness.measured(faith_scores),
         **checker_audit.measured(audit_scores),

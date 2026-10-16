@@ -89,6 +89,18 @@ every time. Every rewrite was read against the signals before either checker
 ran on it; all 96 contradict the signals, none was dropped, none is a
 duplicate. Measured once, with the v0.7 checker frozen.
 
+## `adjudications.jsonl`
+
+Label review of `retrieval_heldout.jsonl` and `checker_errors.jsonl`, kept
+apart so the frozen files never change after being measured. One row per
+held-out row: `id` (`<dataset>:<line number>`), `dataset`, `verdict` (`ok`,
+`ambiguous`, `mislabeled`), `alt_expected` (retrieval: the other sections that
+answer the question; checker: null), `note` and `row_sha` (first 12 hex digits
+of the SHA-256 of the judged line, checked by the tests). Single reviewer, the
+author; not independent, and done after the scores were known. The tolerant
+metric it feeds is printed as secondary and never gated. See
+`quantlens/evals/adjudication.py`.
+
 ## `gates.json`
 
 Regression gates checked by `python -m quantlens.evals`: the accepted counts.

@@ -13,6 +13,7 @@ def test_runner_passes_all_gates(capsys: pytest.CaptureFixture[str]) -> None:
     out = capsys.readouterr().out
     assert "All eval gates passed." in out
     assert "v0.5 deny-list" in out
+    assert "tolerant (secondary)" in out
 
 
 def test_runner_reports_gate_failure(
