@@ -92,7 +92,20 @@ What the table supports:
 - **The guardrail improvement holds out of sample**, but Portuguese recall is
   43/60 = 71.7%: plural imperatives ("saiam", "vendam") are a known gap.
 
-![demo](docs/demo.gif)
+The first lines of `make evals`, scored offline from the recorded LLM output:
+
+```text
+Faithfulness: 180 cases, pass = all 5 checks (95% Wilson)
+  system                                                pass     numbers  rsi_label  vol_label      trend  guardrail
+  rule_based (baseline)     180/180 = 100.0% [97.9%, 100.0%]      100.0%     100.0%     100.0%     100.0%     100.0%
+  qwen3:32b                 180/180 = 100.0% [97.9%, 100.0%]      100.0%     100.0%     100.0%     100.0%     100.0%
+  qwen3:32b (no-rag)           84/180 = 46.7% [39.5%, 53.9%]      100.0%      83.9%      58.3%     100.0%     100.0%
+  qwen3:32b (thresholds)      148/180 = 82.2% [76.0%, 87.1%]      100.0%      90.0%      91.7%     100.0%     100.0%
+  qwen3:8b                    175/180 = 97.2% [93.7%, 98.8%]      100.0%     100.0%      97.2%     100.0%     100.0%
+  qwen3:8b (no-rag)           103/180 = 57.2% [49.9%, 64.2%]      100.0%      88.3%      65.6%     100.0%     100.0%
+  qwen3:8b (thresholds)       172/180 = 95.6% [91.5%, 97.7%]      100.0%     100.0%      95.6%     100.0%     100.0%
+  MDE at n=180, two-sided alpha 0.05, power 0.80, around a 95% pass rate: 6.4 points
+```
 
 ## Run it
 

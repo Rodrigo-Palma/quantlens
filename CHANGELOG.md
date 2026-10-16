@@ -11,6 +11,11 @@ All notable changes to this project are documented here. The format follows
   least 21 observations, got 1") after a network fetch, because Yahoo returns
   one row for `PETR4F.SA`. It now fetches the standard-lot series (`PETR4`) and
   echoes the requested ticker.
+- The README demo GIF showed the 120-case eval of an earlier release (qwen3:32b
+  without retrieval at 101/120, MDE 7.9 points) under a table that reports 180
+  cases. It is replaced by the current `make evals` output as text;
+  `docs/demo.gif` and `docs/demo.tape` are removed, since re-recording needs a
+  live market fetch and a local qwen3:32b.
 
 ## [0.8.0] - 2026-10-16
 
