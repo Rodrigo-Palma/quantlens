@@ -111,6 +111,9 @@ _DIRECTION_VERBS = {
     ),
 }
 
+# "both upward and downward movement" names two directions at once: no claim.
+_TWO_SIDED = re.compile(r"\b(?:up|down)(?:ward)?\s+(?:and|or)\s+(?:up|down)(?:ward)?\b")
+
 
 @dataclass(frozen=True)
 class _Number:
@@ -323,10 +326,12 @@ def _momentum_sentences(text: str, case: Case) -> list[str]:
 
 
 def _direction_claims(text: str, case: Case, direction: str) -> list[str]:
-    claims = [m.group(0) for m in _TREND_TERMS[direction].finditer(text)]
+    one_sided = _TWO_SIDED.sub("two-sided", text)
+    claims = [m.group(0) for m in _TREND_TERMS[direction].finditer(one_sided)]
     for sentence in _momentum_sentences(text, case):
+        sentence = _TWO_SIDED.sub("two-sided", sentence)
         claims += [m.group(0) for m in _DIRECTION_VERBS[direction].finditer(sentence)]
-    return [c for c in claims if asserted(text, re.escape(c))]
+    return [c for c in claims if asserted(one_sided, re.escape(c))]
 
 
 def _signed_momentum(text: str, case: Case) -> set[str]:

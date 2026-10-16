@@ -172,3 +172,24 @@ def test_inverted_comparison_fails_the_whole_verdict() -> None:
     verdict = checks.score(text, _ABEV3)
     assert not verdict.checks["numbers"]
     assert "says RSI 12.1 is above 30 (comparison)" in verdict.notes
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    ["both upward and downward movement", "downward or upward swings", "moves up and down"],
+)
+def test_two_sided_movement_is_not_a_direction_claim(phrase: str) -> None:
+    """Seen in qwen3:8b (thresholds): "potential for both upward and downward movement"."""
+    text = (
+        "ABEV3 is in a downtrend, with momentum of -13.05% over 20 sessions. The RSI(14) "
+        f"of 12 is oversold. Low volatility of 17.06% still allows {phrase}."
+    )
+    assert checks.score(text, _ABEV3).checks["trend"]
+
+
+def test_one_sided_upward_is_still_a_wrong_claim() -> None:
+    text = (
+        "ABEV3 is in a downtrend, with momentum of -13.05%. The RSI(14) of 12 is "
+        "oversold. Low volatility of 17.06% and upward momentum."
+    )
+    assert not checks.score(text, _ABEV3).checks["trend"]
