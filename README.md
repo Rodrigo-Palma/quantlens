@@ -211,7 +211,8 @@ fixed query and a random ranking.
 [ADR 0001](docs/adr/0001-bm25-over-embeddings.md).
 
 **Label review of the held-out sets.** The two held-out files stay frozen; the
-review of their labels is a separate file, `evals/data/adjudications.jsonl`,
+review of their labels is a separate file,
+[`src/quantlens/evals/data/adjudications.jsonl`](src/quantlens/evals/data/adjudications.jsonl),
 one verdict per row (156 rows, each bound to the SHA-256 of the line it
 judged). Protocol: single reviewer; not independent, and done after
 the scores were known. Retrieval (60 questions): 3 ambiguous, where another

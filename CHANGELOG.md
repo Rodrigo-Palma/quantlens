@@ -28,11 +28,15 @@ All notable changes to this project are documented here. The format follows
   number/sign/dir", but its 32 texts are all trend-direction flips; none changes
   a figure or a sign. The row now reads "planted, trend direction"; counts and
   gates are unchanged (32/32 for both checkers).
+- The README and the 0.8.0 entry below pointed to
+  `evals/data/adjudications.jsonl`, which does not exist at the repository
+  root; the file is `src/quantlens/evals/data/adjudications.jsonl`, now linked.
 
 ## [0.8.0] - 2026-10-16
 
 ### Added
-- Label review of the two held-out sets in `evals/data/adjudications.jsonl`
+- Label review of the two held-out sets in
+  `src/quantlens/evals/data/adjudications.jsonl`
   (156 rows, verdict `ok`/`ambiguous`/`mislabeled`, bound to the SHA-256 of
   each frozen line; single reviewer, not independent). The frozen
   files are unchanged. Retrieval: 3 ambiguous, 0 mislabeled; checker errors:
