@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- `/analyze` with a fractional ticker (`PETR4F`) always answered 422 ("need at
+  least 21 observations, got 1") after a network fetch, because Yahoo returns
+  one row for `PETR4F.SA`. It now fetches the standard-lot series (`PETR4`) and
+  echoes the requested ticker.
+
 ## [0.8.0] - 2026-10-16
 
 ### Added

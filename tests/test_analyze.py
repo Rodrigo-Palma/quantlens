@@ -178,6 +178,26 @@ def test_accepts_b3_ticker_forms(market: object, ollama: Callable[..., None], go
     assert client.get("/analyze", params={"ticker": good}).status_code == 200
 
 
+@pytest.mark.parametrize(("requested", "fetched"), [("PETR4F", "PETR4"), ("taee11f", "TAEE11")])
+def test_fractional_ticker_is_analyzed_with_the_standard_lot_series(
+    monkeypatch: pytest.MonkeyPatch, ollama: Callable[..., None], requested: str, fetched: str
+) -> None:
+    # Yahoo has no usable history for the fractional symbol (PETR4F.SA returns a
+    # single row); the fractional market trades the same share as the lot.
+    seen: list[str] = []
+
+    def _fetch(ticker: str) -> pd.Series:
+        seen.append(ticker)
+        return _series()
+
+    monkeypatch.setattr(main, "fetch_close", _fetch)
+    ollama(_reply("Neutral RSI, an uptrend and moderate volatility."))
+    response = client.get("/analyze", params={"ticker": requested})
+    assert response.status_code == 200
+    assert seen == [fetched]
+    assert response.json()["ticker"] == requested.upper()
+
+
 def test_repeated_request_reuses_series_and_explanation(
     monkeypatch: pytest.MonkeyPatch, ollama: Callable[..., None]
 ) -> None:

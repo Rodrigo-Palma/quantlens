@@ -24,6 +24,8 @@ from quantlens.ratelimit import RateLimiter, client_address
 MIN_OBSERVATIONS = 21
 # B3 tickers: four letters, one or two digits, optional F for the fractional
 # market (PETR4, TAEE11, PETR4F). Anything else is rejected before any I/O.
+# A fractional ticker is analyzed with the standard-lot series: it is the same
+# share, and Yahoo has no usable history for the F symbol (one row for PETR4F.SA).
 TICKER_PATTERN = r"^[A-Za-z]{4}\d{1,2}[Ff]?$"
 TICKER_MAX_LENGTH = 7
 
@@ -149,7 +151,13 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     )
 
 
-def _fetch(symbol: str) -> pd.Series:
+def _market_symbol(ticker: str) -> str:
+    """The symbol whose price history stands for ``ticker`` (PETR4F -> PETR4)."""
+    return ticker[:-1] if ticker.endswith("F") else ticker
+
+
+def _fetch(ticker: str) -> pd.Series:
+    symbol = _market_symbol(ticker)
     cached = _closes.get(symbol)
     if cached is not None:
         return cached

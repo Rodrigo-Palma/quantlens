@@ -253,7 +253,9 @@ commit SHA.
 | `LLM_MAX_CONCURRENCY` | `2` | LLM calls in flight; a request past it gets the rule-based explanation (`fallback_reason: llm_busy`) instead of waiting |
 
 `/analyze` accepts only B3 ticker forms (`PETR4`, `TAEE11`, `PETR4F`) and returns
-422 for anything else before any network call. The rate limit is checked next,
+422 for anything else before any network call. A fractional ticker (`PETR4F`) is
+analyzed with the standard-lot series (`PETR4`): it is the same share, and Yahoo
+has no usable history for the `F` symbol. The rate limit is checked next,
 also before any network call, so a ticker that turns out to be unknown (404)
 still spends a token. `/health` is not limited.
 
