@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format follows
   cases. It is replaced by the current `make evals` output as text;
   `docs/demo.gif` and `docs/demo.tape` are removed, since re-recording needs a
   live market fetch and a local qwen3:32b.
+- The checker audit labeled the held-out batch `numeric` "planted,
+  number/sign/dir", but its 32 texts are all trend-direction flips; none changes
+  a figure or a sign. The row now reads "planted, trend direction"; counts and
+  gates are unchanged (32/32 for both checkers).
 
 ## [0.8.0] - 2026-10-16
 

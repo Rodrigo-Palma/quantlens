@@ -250,7 +250,10 @@ def sources() -> list[tuple[str, Case]]:
     return out
 
 
-HELDOUT_KINDS = {"any": "planted, any error", "numeric": "planted, number/sign/dir"}
+# Labeled by what each batch holds, not by what was asked: batch ``numeric`` asked
+# for a wrong figure, sign or direction and got 32 trend flips, so it measures no
+# number or sign error out of sample.
+HELDOUT_KINDS = {"any": "planted, any error", "numeric": "planted, trend direction"}
 
 
 def load_heldout() -> dict[str, list[tuple[str, Case]]]:

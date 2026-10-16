@@ -116,3 +116,17 @@ def test_mutation_pool_ignores_thresholds_cassettes(monkeypatch: pytest.MonkeyPa
         },
     )
     assert checker_audit.sources() == [(text, case)]
+
+
+def test_numeric_heldout_batch_is_labeled_by_what_it_contains() -> None:
+    """Asked for a number, sign or direction error, the planting model only flipped
+    the trend; the report must not claim out-of-sample number or sign coverage."""
+    batch = checker_audit.load_heldout()["numeric"]
+    failed = {
+        name
+        for text, case in batch
+        for name, ok in checks.score(text, case).checks.items()
+        if not ok
+    }
+    assert failed == {"trend"}
+    assert checker_audit.HELDOUT_KINDS["numeric"] == "planted, trend direction"
