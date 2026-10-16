@@ -19,6 +19,14 @@ All notable changes to this project are documented here. The format follows
 - `make audit` and an `audit` CI job: pip-audit 2.10.1 over the 135 packages
   exported from `uv.lock` (all extras, with hashes); no known vulnerabilities
   on 2026-10-15.
+- Faithfulness checker: a comparison against a threshold must be true of its
+  signal. "RSI 75, below 70" and, at RSI 70, both "below 70" and "above 70"
+  now fail the numbers check; "not above 70" holds. No verdict changed on the
+  720 recorded outputs or the 96 held-out errors.
+- Checker audit mutation `comparison_flip` (above <-> below, acima <-> abaixo
+  before a threshold). It applies to 4 of the 542 passing recorded outputs:
+  0/4 caught before the check, 4/4 after (in-sample). Read by hand, 19 of the
+  720 recorded outputs compare a signal with a threshold and none is inverted.
 
 ### Security
 - CI token limited to `contents: read`; `actions/checkout` and

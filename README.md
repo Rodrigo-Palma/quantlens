@@ -49,13 +49,21 @@ What the table supports:
   "30%"/"40%" figures. The v0.7 checker binds every number to its signal and
   sign. On 96 errors planted by gemma4 it catches 91 (the 5 misses are
   volatility labels in wordings it does not read, such as "reflects low
-  risk"); on 8 mutation types of the recorded outputs it catches 99.2% to
-  100%. The planted errors were all labels or trend terms: no out-of-sample
+  risk"); on the 8 original mutation types of the recorded outputs it catches
+  99.2% to 100%. The planted errors were all labels or trend terms: no out-of-sample
   error touched a figure, so the number and sign checks are measured only by
   the in-sample mutations. Re-scoring the 720 recorded
   outputs with it found no number, sign or direction error; it only adds
   volatility labels phrased as "price fluctuations", all in the no-retrieval
   runs.
+- **Inverted threshold comparisons are rare in the recorded outputs.** Read by
+  hand, 19 of the 720 compare a signal with a threshold: 4 with above/below
+  (volatility "below 20%" three times, "above 50%" once) and 15 with "within
+  the 30-70 range"; all from qwen3:32b with retrieval, and none inverted. The
+  checker now fails a comparison that is false for the signal ("RSI 75, below
+  70"); the `comparison_flip` mutation, which swaps above/below on those 4
+  outputs, went from 0/4 caught to 4/4. That is in-sample and n = 4 (95%
+  Wilson [51.0%, 100%]); the 91/96 out-of-sample recall is unchanged.
 - **The LLM does not beat the template on these checks.** qwen3:32b ties the
   rule-based baseline at 180/180: both are at the ceiling, so this eval cannot
   rank them. What the LLM adds is readable prose, which these checks do not
@@ -151,7 +159,8 @@ GPU. A cassette whose prompts no longer match the code fails the gate.
 
 **The checker itself.** Every correct recorded output gets one known error at
 a time (sign flip, swapped figures, invented value, invented constant, inverted
-direction, wrong direction verb, swapped RSI or volatility label), and the
+direction, wrong direction verb, swapped RSI or volatility label, above/below
+swapped before a threshold), and the
 report gives the share each checker catches. Those mutations were designed with
 the v0.7 checker, so they are in-sample; the out-of-sample number is the recall
 on errors planted by `gemma4:31b-it-qat`, read by hand before scoring.
@@ -238,12 +247,20 @@ against Ollama's `/v1` endpoint, not against a hosted vendor.
 
 - **The faithfulness checks are a floor.** They catch invented or misplaced
   numbers, wrong signs, contradicted labels and direction claims, not vague,
-  repetitive or unhelpful prose. They do not check comparisons against
-  thresholds ("RSI 75, below 70" passes), labels in other wordings ("relatively
+  repetitive or unhelpful prose. They do not check range claims ("RSI 75,
+  within the 30-70 range" passes), labels in other wordings ("relatively
   stable", "a calm price path"), or direction verbs outside the sentence that
   holds the momentum figure. Their recall is measured only on the error types
   in the audit; the v0.7 checker was also tuned on the same recorded outputs it
   scores.
+- **The threshold-comparison check is measured in-sample on 4 texts.** It
+  catches 4/4 above/below swaps (95% Wilson [51.0%, 100%]), but the mutation
+  and the check were written by the same author. Of the 96 held-out errors, 2
+  carry an inverted comparison ("RSI 38, below 30", "RSI 64, above 70"), and
+  both were already caught by the RSI label check, so there is no separate
+  out-of-sample recall for it. It only
+  reads above/below-style words followed by a threshold (20, 30, 40, 50, 70)
+  about RSI or volatility.
 - **The retrieval ablation does not isolate retrieval from instructions.** A
   prompt that simply states the 30/70 and 20%/40% thresholds was not tested;
   it might match retrieval with less machinery.
