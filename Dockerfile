@@ -9,8 +9,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# uv pinned by version so the image build is reproducible.
-COPY --from=ghcr.io/astral-sh/uv:0.12.24 /uv /usr/local/bin/uv
+# uv pinned by digest (multi-arch index), not only by tag: the tag is mutable and
+# this binary resolves and installs every locked dependency.
+COPY --from=ghcr.io/astral-sh/uv:0.12.24@sha256:3af4716e991d6956a41e573eab705d0ee08500cd829ed30293eb8472f372c65a /uv /usr/local/bin/uv
 
 # Dependencies first (cached layer), resolved strictly from the committed lockfile.
 COPY pyproject.toml uv.lock README.md ./

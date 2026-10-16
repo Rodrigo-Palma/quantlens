@@ -22,6 +22,8 @@ All notable changes to this project are documented here. The format follows
 - The container runtime user owned `/app`, including `.venv` and `src`, and
   could rewrite the code uvicorn loads. `/app` now stays owned by root, the user
   has no home directory, and yfinance's caches go to `/tmp/.cache`.
+- The `uv` binary in the Dockerfile came from a mutable tag; it is now pinned
+  by digest like the base image.
 - `/analyze` with a fractional ticker (`PETR4F`) always answered 422 ("need at
   least 21 observations, got 1") after a network fetch, because Yahoo returns
   one row for `PETR4F.SA`. It now fetches the standard-lot series (`PETR4`) and
