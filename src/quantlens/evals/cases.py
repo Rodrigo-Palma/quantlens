@@ -18,6 +18,7 @@ import random
 from dataclasses import dataclass
 
 from quantlens import llm
+from quantlens.evals import cassette
 from quantlens.quant.regime import classify
 from quantlens.rag import retrieve_for_regime
 
@@ -41,10 +42,18 @@ class Case:
     mom: float
     vol: float
 
-    def prompt(self, with_context: bool = True) -> str:
-        """The exact prompt the API would send (``with_context=False``: no retrieval)."""
+    def prompt(self, variant: str = cassette.WITH_RETRIEVAL) -> str:
+        """The exact prompt for a variant: ``rag`` is what the API sends, ``no-rag``
+        drops the retrieved context and ``thresholds`` replaces it with the written
+        thresholds (instruction only, nothing retrieved)."""
+        if variant == cassette.THRESHOLDS:
+            return llm.build_thresholds_prompt(self.ticker, self.rsi, self.mom, self.vol)
+        if variant == cassette.WITHOUT_RETRIEVAL:
+            return llm.build_prompt(self.ticker, self.rsi, self.mom, self.vol, None)
+        if variant != cassette.WITH_RETRIEVAL:
+            raise ValueError(f"unknown prompt variant {variant!r}")
         regime = classify(self.rsi, self.mom, self.vol)
-        context = "\n\n".join(retrieve_for_regime(regime)) if with_context else None
+        context = "\n\n".join(retrieve_for_regime(regime))
         return llm.build_prompt(self.ticker, self.rsi, self.mom, self.vol, context)
 
 

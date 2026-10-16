@@ -33,6 +33,17 @@ PROMPT_TEMPLATE = (
     "Annualized volatility: {vol:.2%}\n"
 )
 
+# Instruction-only baseline (no retrieval): the same thresholds the regime
+# classifier and the faithfulness checker use, written out once for every case.
+# It goes in the same "Reference material" slot as retrieved passages, so the
+# only difference from the RAG prompt is what fills that slot.
+THRESHOLDS_REFERENCE = (
+    "RSI(14): below 30 is oversold, between 30 and 70 is neutral, above 70 is overbought.\n"
+    "Momentum (20 sessions): positive is an uptrend, negative is a downtrend.\n"
+    "Annualized volatility: below 20% is low, between 20% and 40% is moderate, "
+    "above 40% is high."
+)
+
 
 def build_prompt(ticker: str, rsi: float, mom: float, vol: float, context: str | None) -> str:
     """The exact prompt sent to the model (shared by the API and the eval recorder)."""
@@ -43,6 +54,11 @@ def build_prompt(ticker: str, rsi: float, mom: float, vol: float, context: str |
             f"do not quote verbatim):\n{context}\n"
         )
     return prompt
+
+
+def build_thresholds_prompt(ticker: str, rsi: float, mom: float, vol: float) -> str:
+    """Prompt variant ``thresholds``: the thresholds written literally, nothing retrieved."""
+    return build_prompt(ticker, rsi, mom, vol, THRESHOLDS_REFERENCE)
 
 
 def explain(

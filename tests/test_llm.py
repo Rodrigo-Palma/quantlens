@@ -91,3 +91,37 @@ def test_model_override_is_sent(provider: Any) -> None:
     recorder = provider("ollama", {"response": "ok"})
     llm.generate("prompt", model="qwen3:8b")
     assert recorder.calls[0]["json"]["model"] == "qwen3:8b"
+
+
+_FROZEN_THRESHOLDS_PROMPT = (
+    "You are a quantitative equity analyst. Given the signals below for a "
+    "Brazilian (B3) stock, write a concise 2-3 sentence explanation for a retail "
+    "investor. Be factual: mention the trend, the RSI condition and the "
+    "volatility. Do NOT give buy/sell advice.\n\n"
+    "Ticker: PETR4\n"
+    "Momentum (20 sessions): 1.00%\n"
+    "RSI(14): 50\n"
+    "Annualized volatility: 20.00%\n"
+    "\nReference material (use only to define terms accurately, "
+    "do not quote verbatim):\n"
+    "RSI(14): below 30 is oversold, between 30 and 70 is neutral, above 70 is "
+    "overbought.\n"
+    "Momentum (20 sessions): positive is an uptrend, negative is a downtrend.\n"
+    "Annualized volatility: below 20% is low, between 20% and 40% is moderate, "
+    "above 40% is high.\n"
+)
+
+
+def test_thresholds_prompt_is_frozen() -> None:
+    """The instruction-only baseline: same contract, thresholds written, nothing retrieved."""
+    assert llm.build_thresholds_prompt("PETR4", 50.0, 0.01, 0.2) == _FROZEN_THRESHOLDS_PROMPT
+
+
+def test_thresholds_reference_matches_the_regime_constants() -> None:
+    from quantlens.quant import regime
+
+    text = llm.THRESHOLDS_REFERENCE
+    assert f"below {regime.RSI_OVERSOLD:.0f} is oversold" in text
+    assert f"above {regime.RSI_OVERBOUGHT:.0f} is overbought" in text
+    assert f"below {regime.VOL_LOW:.0%} is low" in text
+    assert f"above {regime.VOL_HIGH:.0%} is high" in text

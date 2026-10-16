@@ -1,4 +1,4 @@
-.PHONY: install lint fmt fmt-check type test bench evals evals-record bench-llm run docker audit all
+.PHONY: install lint fmt fmt-check type test bench evals evals-record evals-record-thresholds bench-llm run docker audit all
 
 install:
 	uv sync --locked --extra dev
@@ -21,6 +21,10 @@ evals:
 # Re-record the LLM cassettes (needs a local Ollama with the models pulled).
 evals-record:
 	LLM_PROVIDER=ollama uv run python -m quantlens.evals.record --model qwen3:32b --model qwen3:8b
+
+# Instruction-only baseline: the thresholds written in the prompt, no retrieval.
+evals-record-thresholds:
+	LLM_PROVIDER=ollama uv run python -m quantlens.evals.record --variant thresholds --model qwen3:32b --model qwen3:8b
 
 bench:
 	uv run python scripts/benchmark.py

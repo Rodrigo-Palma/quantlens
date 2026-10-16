@@ -49,7 +49,9 @@ def test_main_refuses_non_ollama_provider(monkeypatch: pytest.MonkeyPatch) -> No
 def test_main_records_each_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(record.settings, "llm_provider", "ollama")
     monkeypatch.setattr("sys.argv", ["record", "--model", "m:1"])
-    monkeypatch.setattr(record, "record", lambda model, with_context=True, keep=None: [])
+    monkeypatch.setattr(
+        record, "record", lambda model, variant=cassette.WITH_RETRIEVAL, keep=None: []
+    )
     written: list[str] = []
     monkeypatch.setattr(
         record.cassette, "write", lambda model, recs, variant: written.append(model)
@@ -83,7 +85,7 @@ def test_missing_only_keeps_valid_records_and_fills_the_rest(
     first, second = build_cases()[0].case_id, build_cases()[1].case_id
     stale = cassette.Record(**{**_record(second).__dict__, "prompt_sha256": "stale"})
     path = cassette.write("m:1", [_record(first), stale], tmp_path)
-    keep = record.reusable(path, with_context=True, digest="abc")
+    keep = record.reusable(path, variant=cassette.WITH_RETRIEVAL, digest="abc")
     assert set(keep) == {first}
     monkeypatch.setattr(record.httpx, "get", _fake_get)
     monkeypatch.setattr(record.llm, "generate", lambda prompt, model: "new")
@@ -96,11 +98,14 @@ def test_missing_only_keeps_valid_records_and_fills_the_rest(
 def test_missing_only_refuses_another_model_digest(tmp_path: Path) -> None:
     path = cassette.write("m:1", [_record(build_cases()[0].case_id, digest="old")], tmp_path)
     with pytest.raises(SystemExit, match="recorded with"):
-        record.reusable(path, with_context=True, digest="abc")
+        record.reusable(path, variant=cassette.WITH_RETRIEVAL, digest="abc")
 
 
 def test_missing_only_without_a_cassette_records_everything(tmp_path: Path) -> None:
-    assert record.reusable(tmp_path / "none.jsonl", with_context=True, digest="abc") == {}
+    assert (
+        record.reusable(tmp_path / "none.jsonl", variant=cassette.WITH_RETRIEVAL, digest="abc")
+        == {}
+    )
 
 
 def test_main_missing_only_reads_the_existing_cassette(
@@ -112,8 +117,44 @@ def test_main_missing_only_reads_the_existing_cassette(
     seen: dict[str, object] = {}
     monkeypatch.setattr(record, "reusable", lambda path, ctx, digest: {"x": digest})
     monkeypatch.setattr(
-        record, "record", lambda model, with_context=True, keep=None: seen.update(keep=keep) or []
+        record,
+        "record",
+        lambda model, variant=cassette.WITH_RETRIEVAL, keep=None: seen.update(keep=keep) or [],
     )
     monkeypatch.setattr(record.cassette, "write", lambda model, recs, variant: None)
     record.main()
     assert seen["keep"] == {"x": "abc"}
+
+
+def test_record_thresholds_variant_hashes_the_thresholds_prompt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(record.httpx, "get", _fake_get)
+    monkeypatch.setattr(record.llm, "generate", lambda prompt, model: "t")
+    first = record.record("m:1", variant=cassette.THRESHOLDS)[0]
+    assert first.variant == cassette.THRESHOLDS
+    assert first.prompt_sha256 == cassette.prompt_hash(build_cases()[0].prompt(cassette.THRESHOLDS))
+
+
+@pytest.mark.parametrize(
+    ("flags", "expected"),
+    [
+        ([], cassette.WITH_RETRIEVAL),
+        (["--no-context"], cassette.WITHOUT_RETRIEVAL),
+        (["--variant", "thresholds"], cassette.THRESHOLDS),
+    ],
+)
+def test_main_selects_the_prompt_variant(
+    monkeypatch: pytest.MonkeyPatch, flags: list[str], expected: str
+) -> None:
+    monkeypatch.setattr(record.settings, "llm_provider", "ollama")
+    monkeypatch.setattr("sys.argv", ["record", "--model", "m:1", *flags])
+    seen: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        record, "record", lambda model, variant=cassette.WITH_RETRIEVAL, keep=None: []
+    )
+    monkeypatch.setattr(
+        record.cassette, "write", lambda model, recs, variant: seen.append((model, variant))
+    )
+    record.main()
+    assert seen == [("m:1", expected)]

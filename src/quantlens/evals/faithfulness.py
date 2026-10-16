@@ -55,7 +55,6 @@ def run() -> list[SystemScore]:
     baseline = rule_based_texts(cases)
     scores = [SystemScore(BASELINE, tuple(score(baseline[c.case_id], c) for c in cases), 0)]
     for name, records in cassette.load_all().items():
-        with_context = records[0].variant == cassette.WITH_RETRIEVAL
         current = {r.case_id: r for r in records if r.case_id in by_id}
         verdicts = tuple(
             score(current[c.case_id].text if c.case_id in current else None, c) for c in cases
@@ -64,7 +63,8 @@ def run() -> list[SystemScore]:
             1
             for c in cases
             if c.case_id not in current
-            or current[c.case_id].prompt_sha256 != cassette.prompt_hash(c.prompt(with_context))
+            or current[c.case_id].prompt_sha256
+            != cassette.prompt_hash(c.prompt(records[0].variant))
         )
         scores.append(SystemScore(name, verdicts, stale))
     return scores
@@ -99,6 +99,24 @@ def report(scores: list[SystemScore]) -> list[str]:
         is_ablation = name.endswith(f"({cassette.WITHOUT_RETRIEVAL})")
         if is_ablation and base is not None and base.system != DEFAULT_MODEL:
             lines.append(_paired_line(base, ablated))
+    return lines + _thresholds_lines(models)
+
+
+def _thresholds_lines(models: dict[str, SystemScore]) -> list[str]:
+    """Does retrieval add anything over writing the thresholds in the prompt?
+
+    For every model with a ``thresholds`` cassette, pair it with the same model's
+    RAG prompt and with its bare (no-rag) prompt.
+    """
+    lines = []
+    suffix = f" ({cassette.THRESHOLDS})"
+    for name, instructed in models.items():
+        if not name.endswith(suffix):
+            continue
+        model = name.removesuffix(suffix)
+        for other in (model, f"{model} ({cassette.WITHOUT_RETRIEVAL})"):
+            if other in models:
+                lines.append(_paired_line(instructed, models[other]))
     return lines
 
 

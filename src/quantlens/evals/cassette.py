@@ -17,6 +17,9 @@ from pathlib import Path
 CASSETTE_DIR = "data/cassettes"
 WITH_RETRIEVAL = "rag"
 WITHOUT_RETRIEVAL = "no-rag"
+# Instruction-only baseline: the thresholds written in the prompt, no retrieval.
+THRESHOLDS = "thresholds"
+VARIANTS = (WITH_RETRIEVAL, WITHOUT_RETRIEVAL, THRESHOLDS)
 
 
 @dataclass(frozen=True)

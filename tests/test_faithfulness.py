@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from quantlens import llm
 from quantlens.evals import cassette, faithfulness
 from quantlens.evals.faithfulness import Case, score
 from quantlens.evals.stats import mcnemar_exact
@@ -132,3 +133,56 @@ def test_elevated_counts_as_high() -> None:
 def test_coordinated_negation_is_a_hedge() -> None:
     text = "VALE3 is in a downtrend, without signs of overbought or oversold conditions."
     assert score(text, _DOWN_NEUTRAL).checks["rsi_label"]
+
+
+def test_case_prompt_variants_differ_only_in_the_reference_block() -> None:
+    case = faithfulness.build_cases()[0]
+    bare = case.prompt(cassette.WITHOUT_RETRIEVAL)
+    thresholds = case.prompt(cassette.THRESHOLDS)
+    rag = case.prompt(cassette.WITH_RETRIEVAL)
+    assert case.prompt() == rag
+    assert thresholds == bare + thresholds.removeprefix(bare)
+    assert thresholds.endswith(llm.THRESHOLDS_REFERENCE + "\n")
+    assert "## " not in thresholds
+    assert "## " in rag
+    with pytest.raises(ValueError, match="unknown prompt variant"):
+        case.prompt("few-shot")
+
+
+def test_slug_and_system_name_of_the_thresholds_variant() -> None:
+    assert cassette.slug("qwen3:32b", cassette.THRESHOLDS) == "qwen3-32b.thresholds"
+    record = cassette.Record("c", "m:1", "t", 1.0, "h", "d", "0", "hw", "x", cassette.THRESHOLDS)
+    assert record.system == "m:1 (thresholds)"
+
+
+def _system(name: str, passed: list[bool]) -> faithfulness.SystemScore:
+    checks = dict.fromkeys(faithfulness.CHECKS, True)
+    verdicts = tuple(
+        faithfulness.Verdict(f"c{i}", {**checks, "numbers": ok}, ()) for i, ok in enumerate(passed)
+    )
+    return faithfulness.SystemScore(name, verdicts, 0)
+
+
+def test_report_pairs_thresholds_with_rag_and_no_rag_for_every_model() -> None:
+    scores = [
+        _system(faithfulness.BASELINE, [True] * 4),
+        *[
+            _system(f"{model}{suffix}", flags)
+            for model in ("qwen3:32b", "qwen3:8b")
+            for suffix, flags in (
+                ("", [True, True, True, True]),
+                (" (no-rag)", [False, False, True, True]),
+                (" (thresholds)", [True, False, True, True]),
+            )
+        ],
+    ]
+    lines = "\n".join(faithfulness.report(scores))
+    for model in ("qwen3:32b", "qwen3:8b"):
+        assert (
+            f"paired {model} (thresholds) vs {model}: only the first passes 0, "
+            "only the second passes 1, exact McNemar p = 1"
+        ) in lines
+        assert (
+            f"paired {model} (thresholds) vs {model} (no-rag): only the first passes 1, "
+            "only the second passes 0, exact McNemar p = 1"
+        ) in lines
