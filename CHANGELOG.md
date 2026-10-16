@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Label review of the two held-out sets in `evals/data/adjudications.jsonl`
+  (156 rows, verdict `ok`/`ambiguous`/`mislabeled`, bound to the SHA-256 of
+  each frozen line; single reviewer, the author, not independent). The frozen
+  files are unchanged. Retrieval: 3 ambiguous, 0 mislabeled; checker errors:
+  0 ambiguous, 0 mislabeled. `make evals` prints a tolerant metric next to the
+  strict one, labeled secondary and not gated: retrieval hit@1 35/60 (strict
+  34/60), checker recall 91/96 (strict 91/96).
 - Instruction-only baseline for the faithfulness eval: prompt variant
   `thresholds` (`llm.build_thresholds_prompt`) with the 30/70 and 20%/40%
   thresholds written in the reference slot and nothing retrieved; recorder

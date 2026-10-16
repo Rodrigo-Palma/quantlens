@@ -192,6 +192,19 @@ plus all 18 signal regimes the API can produce (recall@3), against the v0.5
 fixed query and a random ranking.
 [ADR 0001](docs/adr/0001-bm25-over-embeddings.md).
 
+**Label review of the held-out sets.** The two held-out files stay frozen; the
+review of their labels is a separate file, `evals/data/adjudications.jsonl`,
+one verdict per row (156 rows, each bound to the SHA-256 of the line it
+judged). Protocol: single reviewer, the author; not independent, and done after
+the scores were known. Retrieval (60 questions): 3 ambiguous, where another
+section answers at least as well (RSI vs Momentum for "speed of a price move"
+and "price velocity"), 0 mislabeled. Planted checker errors (96 texts): 0
+ambiguous, 0 mislabeled; the 5 texts the v0.7 checker misses are all wrong
+("34.01% reflects low risk", "13.98% falls into the moderate volatility
+category"). `make evals` prints a tolerant hit@1 that accepts the adjudicated
+alternatives, 35/60, labeled secondary. The quoted numbers and the gates stay
+on the strict labels: 34/60 and 91/96.
+
 Corrections that came from reading outputs rather than trusting scores are in
 the git history and apply to every system: a fifth check (`vol_label`) was
 added after the qwen3:8b outputs showed "volatility of 17.26% reflects moderate
