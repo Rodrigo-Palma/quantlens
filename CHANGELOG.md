@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-16
+
 ### Added
 - Label review of the two held-out sets in `evals/data/adjudications.jsonl`
   (156 rows, verdict `ok`/`ambiguous`/`mislabeled`, bound to the SHA-256 of
@@ -26,7 +28,9 @@ All notable changes to this project are documented here. The format follows
   fetch, so unknown tickers spend a token too. Past it the API answers 429 with
   `Retry-After` and `X-Request-ID`, and the request trace logs status 429.
   The bucket map is an LRU capped at `RATE_LIMIT_MAX_CLIENTS`.
-  `X-Forwarded-For` is read only from `TRUSTED_PROXIES`. `/health` is exempt.
+  `X-Forwarded-For` is read only from `TRUSTED_PROXIES`, and an invalid
+  `TRUSTED_PROXIES` fails at startup instead of on the first request.
+  `/health` is exempt.
 - `LLM_MAX_CONCURRENCY` caps LLM calls in flight. A request that finds every
   slot busy gets the rule-based explanation at once, logged as
   `fallback_reason: llm_busy`; a cached explanation never takes a slot.
@@ -41,6 +45,17 @@ All notable changes to this project are documented here. The format follows
   before a threshold). It applies to 4 of the 542 passing recorded outputs:
   0/4 caught before the check, 4/4 after (in-sample). Read by hand, 19 of the
   720 recorded outputs compare a signal with a threshold and none is inverted.
+
+### Changed
+- Dependencies: fastapi 0.143.2, numpy 2.5.4, pydantic 2.14.1,
+  pydantic-settings 2.16.0, ruff 0.17.1, pre-commit 4.7.0. The test suite
+  fails on any `StarletteDeprecationWarning`, except the httpx -> httpx2
+  notice from `starlette.testclient`.
+- The checker audit mutates only the rag and no-rag cassettes, so adding a
+  scored baseline such as `thresholds` does not move the audit counts.
+- Dependabot groups minor/patch pip updates and GitHub Actions updates into
+  one PR each, and no longer proposes minor/major Python bumps of the Docker
+  base image.
 
 ### Fixed
 - Faithfulness checker: a two-sided phrase ("both upward and downward
