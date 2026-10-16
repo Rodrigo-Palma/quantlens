@@ -195,7 +195,7 @@ fixed query and a random ranking.
 **Label review of the held-out sets.** The two held-out files stay frozen; the
 review of their labels is a separate file, `evals/data/adjudications.jsonl`,
 one verdict per row (156 rows, each bound to the SHA-256 of the line it
-judged). Protocol: single reviewer, the author; not independent, and done after
+judged). Protocol: single reviewer; not independent, and done after
 the scores were known. Retrieval (60 questions): 3 ambiguous, where another
 section answers at least as well (RSI vs Momentum for "speed of a price move"
 and "price velocity"), 0 mislabeled. Planted checker errors (96 texts): 0

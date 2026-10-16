@@ -9,7 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 - Label review of the two held-out sets in `evals/data/adjudications.jsonl`
   (156 rows, verdict `ok`/`ambiguous`/`mislabeled`, bound to the SHA-256 of
-  each frozen line; single reviewer, the author, not independent). The frozen
+  each frozen line; single reviewer, not independent). The frozen
   files are unchanged. Retrieval: 3 ambiguous, 0 mislabeled; checker errors:
   0 ambiguous, 0 mislabeled. `make evals` prints a tolerant metric next to the
   strict one, labeled secondary and not gated: retrieval hit@1 35/60 (strict
