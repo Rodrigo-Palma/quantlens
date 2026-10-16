@@ -19,10 +19,16 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --locked --no-dev
 
-RUN useradd --create-home --uid 10001 app && chown -R app /app
+# /app (code and .venv) stays owned by root and read-only to the runtime user,
+# so a write primitive in the process cannot rewrite what uvicorn imports. The
+# only writes at runtime are yfinance's cookie/tz caches, sent to /tmp (mount a
+# tmpfs there when the root filesystem is read-only); without it yfinance falls
+# back to an in-memory cache.
+RUN useradd --no-create-home --uid 10001 app
 USER app
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    XDG_CACHE_HOME=/tmp/.cache
 
 EXPOSE 8000
 

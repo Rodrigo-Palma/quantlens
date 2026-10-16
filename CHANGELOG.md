@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format follows
   rotating through its /64 got a full bucket on every request (1000 of 1000
   requests allowed instead of the burst of 10). IPv6 clients are now keyed by
   their /64 network and IPv4-mapped addresses by the IPv4 address.
+- The container runtime user owned `/app`, including `.venv` and `src`, and
+  could rewrite the code uvicorn loads. `/app` now stays owned by root, the user
+  has no home directory, and yfinance's caches go to `/tmp/.cache`.
 - `/analyze` with a fractional ticker (`PETR4F`) always answered 422 ("need at
   least 21 observations, got 1") after a network fetch, because Yahoo returns
   one row for `PETR4F.SA`. It now fetches the standard-lot series (`PETR4`) and
