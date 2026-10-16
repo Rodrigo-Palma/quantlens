@@ -13,19 +13,16 @@ from pydantic import BaseModel
 from quantlens import __version__, guardrails, llm, rag
 from quantlens.cache import TTLCache
 from quantlens.config import settings
-from quantlens.data.market import fetch_close
+from quantlens.data.market import fetch_close, market_symbol
 from quantlens.explain import rule_based
 from quantlens.observability import RequestTrace, configure_logging
-from quantlens.quant import regime, signals
+from quantlens.quant import regime, snapshot
 from quantlens.ratelimit import RateLimiter, client_address
 
-# RSI(14) needs 15 closes and 20-session momentum needs 21; below that a signal
-# is NaN, which is not valid JSON. Reject the request instead of serving NaN.
-MIN_OBSERVATIONS = 21
 # B3 tickers: four letters, one or two digits, optional F for the fractional
 # market (PETR4, TAEE11, PETR4F). Anything else is rejected before any I/O.
-# A fractional ticker is analyzed with the standard-lot series: it is the same
-# share, and Yahoo has no usable history for the F symbol (one row for PETR4F.SA).
+# A fractional ticker is analyzed with the standard-lot series
+# (``market_symbol``).
 TICKER_PATTERN = r"^[A-Za-z]{4}\d{1,2}[Ff]?$"
 TICKER_MAX_LENGTH = 7
 
@@ -108,19 +105,13 @@ def _enforce_rate_limit(request: Request) -> None:
 def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     with trace.stage("fetch"):
         close = _fetch(symbol)
-    if len(close) < MIN_OBSERVATIONS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"need at least {MIN_OBSERVATIONS} observations, got {len(close)}",
-        )
-
-    with trace.stage("signals"):
-        rsi_value = float(signals.rsi(close).iloc[-1])
-        mom = signals.momentum(close)
-        vol = signals.annualized_volatility(close)
-        last = float(close.iloc[-1])
-    if not all(math.isfinite(x) for x in (rsi_value, mom, vol, last)):
-        raise HTTPException(status_code=422, detail="signals are undefined for these observations")
+    try:
+        snapshot.require_observations(close)
+        with trace.stage("signals"):
+            snap = snapshot.compute(close)
+    except snapshot.SignalsUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    rsi_value, mom, vol, last = snap.rsi, snap.momentum, snap.volatility, snap.last
 
     current = regime.classify(rsi_value, mom, vol)
     with trace.stage("retrieve"):
@@ -151,13 +142,8 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     )
 
 
-def _market_symbol(ticker: str) -> str:
-    """The symbol whose price history stands for ``ticker`` (PETR4F -> PETR4)."""
-    return ticker[:-1] if ticker.endswith("F") else ticker
-
-
 def _fetch(ticker: str) -> pd.Series:
-    symbol = _market_symbol(ticker)
+    symbol = market_symbol(ticker)
     cached = _closes.get(symbol)
     if cached is not None:
         return cached

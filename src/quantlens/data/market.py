@@ -6,6 +6,15 @@ import pandas as pd
 import yfinance as yf
 
 
+def market_symbol(ticker: str) -> str:
+    """The symbol whose price history stands for ``ticker`` (PETR4F -> PETR4).
+
+    A fractional-market ticker is the same share as the standard lot, and Yahoo
+    has no usable history for the F symbol (one row for PETR4F.SA).
+    """
+    return ticker[:-1] if ticker.endswith("F") else ticker
+
+
 def fetch_close(ticker: str, period: str = "6mo", interval: str = "1d") -> pd.Series:
     """Fetch the adjusted-close series for a B3 ticker (e.g. ``PETR4``).
 

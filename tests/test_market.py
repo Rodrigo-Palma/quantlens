@@ -48,3 +48,10 @@ def test_no_data_raises_value_error(
     _patch_download(monkeypatch, frame)
     with pytest.raises(ValueError, match="no data"):
         market.fetch_close("NOPE3")
+
+
+@pytest.mark.parametrize(
+    ("ticker", "symbol"), [("PETR4F", "PETR4"), ("TAEE11F", "TAEE11"), ("PETR4", "PETR4")]
+)
+def test_market_symbol_maps_fractional_to_standard_lot(ticker: str, symbol: str) -> None:
+    assert market.market_symbol(ticker) == symbol
