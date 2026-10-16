@@ -226,14 +226,22 @@ class AuditScore:
     recall: Rate
 
 
+# The mutation pool is the rag and no-rag cassettes the v0.7 checker was built
+# on. Later baselines (the ``thresholds`` prompt) are scored, not mutated, so
+# adding one does not move the audit counts.
+AUDIT_VARIANTS = (cassette.WITH_RETRIEVAL, cassette.WITHOUT_RETRIEVAL)
+
+
 def sources() -> list[tuple[str, Case]]:
-    """Distinct recorded LLM outputs that the current checker passes."""
+    """Distinct recorded LLM outputs (audit variants only) that the checker passes."""
     by_id = {c.case_id: c for c in build_cases()}
     seen: set[str] = set()
     out = []
     for records in cassette.load_all().values():
         for record in records:
             case = by_id.get(record.case_id)
+            if record.variant not in AUDIT_VARIANTS:
+                continue
             if case is None or not record.text or record.text in seen:
                 continue
             if checks.score(record.text, case).passed:

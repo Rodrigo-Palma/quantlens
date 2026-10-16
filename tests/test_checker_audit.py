@@ -90,3 +90,29 @@ def test_run_reports_both_checkers_on_recorded_outputs() -> None:
     assert "v0.6 checker" in lines[1]
     measured = checker_audit.measured(scores)
     assert measured["checker_audit.sign_flip.n"] > 0
+
+
+def test_mutation_pool_ignores_thresholds_cassettes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The audit pool stays the four rag/no-rag cassettes the checker was built on."""
+    from quantlens.evals import cassette
+    from quantlens.evals.cases import build_cases
+
+    case = build_cases()[0]
+    text = (
+        f"{case.ticker} is in an uptrend, with momentum of {case.mom:.2%}. "
+        f"Its RSI of {case.rsi:.0f} is oversold, and volatility of {case.vol:.2%} is low."
+    )
+    assert checks.score(text, case).passed
+
+    def _rec(variant: str, body: str) -> cassette.Record:
+        return cassette.Record(case.case_id, "m:1", body, 1.0, "h", "d", "0", "hw", "x", variant)
+
+    monkeypatch.setattr(
+        cassette,
+        "load_all",
+        lambda: {
+            "m:1": [_rec(cassette.WITH_RETRIEVAL, text)],
+            "m:1 (thresholds)": [_rec(cassette.THRESHOLDS, text + " Calm.")],
+        },
+    )
+    assert checker_audit.sources() == [(text, case)]
