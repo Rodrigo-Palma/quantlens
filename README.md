@@ -186,12 +186,19 @@ make bench                      # latency of each offline stage; prints the reco
 make evals-record               # re-record LLM outputs (needs Ollama with qwen3:32b, qwen3:8b)
 make bench-llm                  # re-measure LLM latency (warm model, idle Ollama server)
 make docker                     # build the image
+make audit                      # pip-audit over uv.lock (needs network)
 ```
 
 CI runs lint, format, mypy, tests, evals and the offline-stage benchmark on
 Python 3.12 and 3.13, and builds the Docker image and waits for its
 healthcheck. LLM latency is never measured in CI; it is recorded with
 `make bench-llm` on the machine named in `latency.json`.
+A third job, `make audit`, runs pip-audit over every package pinned in
+`uv.lock` and fails on any known vulnerability. It reads a live advisory
+database, so a new advisory can turn it red with no code change: bump the
+package, or, while no fix exists, add `--ignore-vuln <ID>` with a comment to
+the `audit` target. The workflow token is read-only and actions are pinned by
+commit SHA.
 
 ## Configuration
 

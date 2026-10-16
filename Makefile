@@ -1,4 +1,4 @@
-.PHONY: install lint fmt fmt-check type test bench evals evals-record bench-llm run docker all
+.PHONY: install lint fmt fmt-check type test bench evals evals-record bench-llm run docker audit all
 
 install:
 	uv sync --locked --extra dev
@@ -31,6 +31,13 @@ bench-llm:
 
 fmt-check:
 	uv run ruff format --check .
+
+# Known-vulnerability scan of every package pinned in uv.lock (needs network).
+PIP_AUDIT_VERSION := 2.10.1
+audit:
+	uv export --locked --no-emit-project --all-extras --format requirements-txt > .audit-requirements.txt
+	uvx pip-audit@$(PIP_AUDIT_VERSION) -r .audit-requirements.txt --require-hashes --disable-pip --strict --progress-spinner off; \
+	status=$$?; rm -f .audit-requirements.txt; exit $$status
 
 docker:
 	docker build -t quantlens:dev .

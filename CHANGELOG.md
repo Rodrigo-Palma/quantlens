@@ -16,6 +16,14 @@ All notable changes to this project are documented here. The format follows
 - `LLM_MAX_CONCURRENCY` caps LLM calls in flight. A request that finds every
   slot busy gets the rule-based explanation at once, logged as
   `fallback_reason: llm_busy`; a cached explanation never takes a slot.
+- `make audit` and an `audit` CI job: pip-audit 2.10.1 over the 135 packages
+  exported from `uv.lock` (all extras, with hashes); no known vulnerabilities
+  on 2026-10-15.
+
+### Security
+- CI token limited to `contents: read`; `actions/checkout` and
+  `astral-sh/setup-uv` pinned by commit SHA, with `persist-credentials: false`.
+  zizmor findings on `ci.yml` went from 9 to 0.
 
 ## [0.7.0] - 2026-10-09
 
