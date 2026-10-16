@@ -20,6 +20,9 @@ Mutations (each applied only where the source text has the thing to mutate):
   sessions." when it fell), the error the v0.6 lexicon could not see.
 * ``rsi_label_swap``: "oversold" <-> "overbought"; "neutral" -> "overbought".
 * ``vol_label_swap``: the volatility label is replaced by a wrong one.
+* ``comparison_flip``: "above" <-> "below" (and "acima" <-> "abaixo") where the
+  word compares against a threshold ("17.06%, below 20%" -> "above 20%");
+  comparisons with no threshold number ("above its average") are left alone.
 
 Every mutated text is wrong by construction, so the rate is a recall. Its limit:
 the mutations were designed together with the v0.7 checker, so their recall is
@@ -50,6 +53,7 @@ MUTATIONS = (
     "wrong_verb",
     "rsi_label_swap",
     "vol_label_swap",
+    "comparison_flip",
 )
 INVENTED_SHIFT = 9.0
 CHECKERS: dict[str, Callable[[str | None, Case], Verdict]] = {
@@ -90,6 +94,17 @@ _RSI_LABEL = re.compile(r"\b(oversold|overbought|neutral)\b", re.IGNORECASE)
 _VOL_WORD = re.compile(
     r"\b(low|moderate|high|elevated)(\s+(?:annualized\s+)?"
     r"(?:volatility|price swings|(?:price\s+)?fluctuations))\b",
+    re.IGNORECASE,
+)
+
+_COMPARISON_SWAPS = {"above": "below", "below": "above", "acima": "abaixo", "abaixo": "acima"}
+# The comparison word, up to 4 filler words ("the oversold level of", "de"), then a
+# threshold that is not a window ("below its 20-day mean" is not a threshold).
+_THRESHOLD_COMPARISON = re.compile(
+    r"\b(above|below|acima|abaixo)\b"
+    r"(?=(?:\s+(?:the|an?|of|de|do|da|level|threshold|mark|line|rsi|overbought|oversold"
+    r"|neutral|high|low|moderate|volatility))*\s+(?:20|30|40|50|70)(?![\d.]\d)"
+    r"(?!\s*-?\s*(?:day|session|trading|period)))",
     re.IGNORECASE,
 )
 
@@ -181,6 +196,11 @@ def _vol_label_swap(text: str, case: Case) -> str | None:
     return swapped if swapped != text else None
 
 
+def _comparison_flip(text: str, case: Case) -> str | None:
+    flipped = _THRESHOLD_COMPARISON.sub(lambda m: _swap_word(m, _COMPARISON_SWAPS), text)
+    return flipped if flipped != text else None
+
+
 _MUTATORS: dict[str, Callable[[str, Case], str | None]] = {
     "sign_flip": _sign_flip,
     "number_swap": _number_swap,
@@ -190,6 +210,7 @@ _MUTATORS: dict[str, Callable[[str, Case], str | None]] = {
     "wrong_verb": _wrong_verb,
     "rsi_label_swap": _rsi_label_swap,
     "vol_label_swap": _vol_label_swap,
+    "comparison_flip": _comparison_flip,
 }
 
 

@@ -117,3 +117,58 @@ def test_between_the_labels_is_a_hedge() -> None:
     case = Case("t", "ITUB4", rsi=49.9, mom=-0.0996, vol=0.3523)
     text = "the rsi(14) is at 50, a neutral position between overbought and oversold conditions."
     assert checks.rsi_label_ok(text, case)[0]
+
+
+# RSI 75 for "RSI 75, below 70"; RSI exactly at the 70 threshold for the boundary.
+_HOT = Case("t", "PETR4", rsi=75.0, mom=0.05, vol=0.1706)
+_AT_70 = Case("t", "PETR4", rsi=70.0, mom=0.05, vol=0.1706)
+
+
+@pytest.mark.parametrize(
+    ("text", "case"),
+    [
+        ("the rsi(14) of 12 is oversold (below 30).", _ABEV3),
+        ("volatility of 17.06%, below the 20% threshold.", _ABEV3),
+        ("rsi of 75, above the overbought level of 70.", _HOT),
+        ("rsi of 75 exceeds 70.", _HOT),
+        ("rsi of 75, more than 70.", _HOT),
+        ("rsi of 12, under 30.", _ABEV3),
+        ("rsi of 12, not above 30.", _ABEV3),
+        ("o rsi de 12 está abaixo de 30.", _ABEV3),
+        ("volatility over the last 20 sessions is 17.06%.", _ABEV3),
+        ("rsi of 70, at the 70 line.", _AT_70),
+        ("rsi of 70, not above 70.", _AT_70),
+        ("rsi of 70, not below 70.", _AT_70),
+    ],
+)
+def test_true_threshold_comparison_passes(text: str, case: Case) -> None:
+    ok, notes = checks.numbers_ok(text, case)
+    assert ok, notes
+
+
+@pytest.mark.parametrize(
+    ("text", "case"),
+    [
+        ("rsi of 75, below 70.", _HOT),
+        ("rsi of 12, above 30.", _ABEV3),
+        ("the rsi(14) of 12 is oversold (above 30).", _ABEV3),
+        ("volatility of 17.06%, above the 20% threshold.", _ABEV3),
+        ("rsi of 12 exceeds 30.", _ABEV3),
+        ("rsi of 75, less than 70.", _HOT),
+        ("rsi of 12, not below 30.", _ABEV3),
+        ("o rsi de 12 está acima de 30.", _ABEV3),
+        ("rsi of 70, below 70.", _AT_70),
+        ("rsi of 70, above 70.", _AT_70),
+    ],
+)
+def test_inverted_threshold_comparison_fails(text: str, case: Case) -> None:
+    ok, notes = checks.numbers_ok(text, case)
+    assert not ok
+    assert any("comparison" in note for note in notes), notes
+
+
+def test_inverted_comparison_fails_the_whole_verdict() -> None:
+    text = _CORRECT.replace("below 30", "above 30")
+    verdict = checks.score(text, _ABEV3)
+    assert not verdict.checks["numbers"]
+    assert "says RSI 12.1 is above 30 (comparison)" in verdict.notes

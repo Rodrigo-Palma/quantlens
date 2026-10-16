@@ -10,7 +10,8 @@ from quantlens.evals.cases import Case
 _CASE = Case("t", "ABEV3", rsi=12.1, mom=-0.1305, vol=0.1706)
 _TEXT = (
     "ABEV3 is in a downtrend, with negative momentum of -13.05% over the last 20 "
-    "sessions. The RSI(14) of 12 is oversold. It has low volatility of 17.06%."
+    "sessions. The RSI(14) of 12 is oversold. It has low volatility of 17.06%, "
+    "below 20%."
 )
 
 
@@ -29,19 +30,46 @@ def test_every_mutation_applies_and_is_caught(kind: str) -> None:
 def test_mutations_change_what_they_say() -> None:
     assert "+13.05%" in str(checker_audit.mutate("sign_flip", _TEXT, _CASE))
     swapped = str(checker_audit.mutate("number_swap", _TEXT, _CASE))
-    assert "-17.06%" in swapped and "13.05%." in swapped
+    assert "-17.06%" in swapped and "of 13.05%," in swapped
     assert "26.06%" in str(checker_audit.mutate("invented_value", _TEXT, _CASE))
     assert "40%" in str(checker_audit.mutate("invented_constant", _TEXT, _CASE))
     assert "uptrend" in str(checker_audit.mutate("direction_flip", _TEXT, _CASE))
     assert "ABEV3 rose 13.05%" in str(checker_audit.mutate("wrong_verb", _TEXT, _CASE))
     assert "is overbought" in str(checker_audit.mutate("rsi_label_swap", _TEXT, _CASE))
     assert "high volatility" in str(checker_audit.mutate("vol_label_swap", _TEXT, _CASE))
+    assert "17.06%, above 20%" in str(checker_audit.mutate("comparison_flip", _TEXT, _CASE))
+
+
+@pytest.mark.parametrize(
+    ("text", "flipped"),
+    [
+        ("The RSI of 12 is below 30.", "The RSI of 12 is above 30."),
+        ("RSI 12, Below the oversold level of 30.", "RSI 12, Above the oversold level of 30."),
+        ("O RSI de 12 est\u00e1 abaixo de 30.", "O RSI de 12 est\u00e1 acima de 30."),
+        ("Volatility is 50.78%, above 50%.", "Volatility is 50.78%, below 50%."),
+    ],
+)
+def test_comparison_flip_inverts_threshold_comparisons(text: str, flipped: str) -> None:
+    assert checker_audit.mutate("comparison_flip", text, _CASE) == flipped
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Prices sit above their recent average.",
+        "Volatility below its 20-day mean is 17.06%.",
+        "The RSI of 12 is within the 30-70 range.",
+    ],
+)
+def test_comparison_flip_skips_comparisons_without_a_threshold(text: str) -> None:
+    assert checker_audit.mutate("comparison_flip", text, _CASE) is None
 
 
 def test_mutation_is_skipped_when_nothing_to_mutate() -> None:
     plain = "ABEV3 is in a downtrend. The RSI(14) of 12 is oversold."
     assert checker_audit.mutate("number_swap", plain, _CASE) is None
     assert checker_audit.mutate("vol_label_swap", plain, _CASE) is None
+    assert checker_audit.mutate("comparison_flip", plain, _CASE) is None
 
 
 def test_ambiguous_figures_are_not_mutated() -> None:

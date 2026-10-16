@@ -9,7 +9,10 @@ Five checks, all decidable by code:
   0.51 points), carries the right sign when it is written with one, or is a
   constant in a form that cannot be read as a value: a threshold after a
   comparison ("below 20%", "RSI > 70", "between 30 and 70"), a range
-  ("0 to 100") or a window ("RSI(14)", "20 sessions").
+  ("0 to 100") or a window ("RSI(14)", "20 sessions"). A comparison against a
+  threshold must also be true of the signal it is about: "RSI 75, below 70",
+  "volatility of 17%, above 20%" and, at RSI 70, "below 70" all fail; "not
+  above 70" holds at 70. Ranges ("within 30-70") are not judged.
 * ``rsi_label``: no unhedged "overbought" at RSI <= 70, "oversold" at RSI >= 30,
   or "neutral" outside 30-70.
 * ``vol_label``: a "low/moderate/high/elevated volatility | price swings |
@@ -61,8 +64,22 @@ _RANGE = re.compile(
     rf"\b(?:between|from)\s+(\d+)\s*%?\s*(?:and|to|{_DASH})\s*(\d+)\s*%?"
     rf"|\b(\d+)\s*%?\s*(?:{_DASH}|to)\s*(\d+)\b"
 )
+# A comparison word, up to 4 filler words, then the threshold (``$`` = the number).
+_FILLER = (
+    r"the|an?|its|of|de|do|da|level|threshold|mark|line|rsi|overbought|oversold|neutral"
+    r"|high|low|moderate|volatility|regime|band|boundary"
+)
+_CLAIM = re.compile(
+    rf"(?P<neg>\b(?:not|no longer|never|n[aã]o(?: est[aá])?)\s+)?"
+    r"\b(?P<op>below|under|beneath|above|over|exceed(?:s|ed|ing)?|surpass(?:es|ed|ing)?"
+    r"|(?:less|lower|more|greater|higher)\s+than|abaixo|acima)\b"
+    rf"(?:\s+(?:{_FILLER}))*\s*$"
+)
+_BELOW = frozenset({"below", "under", "beneath", "less than", "lower than", "abaixo"})
+_COMPARABLE = frozenset({"rsi", "volatility"})
 _CLAUSE_BREAK = re.compile(r"[,;:]")
-_WINDOW_AFTER = re.compile(r"^\s*-?\s*(?:day|session|trading|period|month)|^\)")
+_WINDOW_WORD = r"^\s*-?\s*(?:day|session|trading|period|month)"
+_WINDOW_AFTER = re.compile(rf"{_WINDOW_WORD}|^\)")
 
 _HEDGES = frozenset(
     {"not", "no", "nor", "neither", "approaching", "nearing", "near", "toward", "towards"}
@@ -154,10 +171,37 @@ def _range_positions(text: str) -> set[int]:
     return positions
 
 
+def _claim(text: str, num: _Number) -> tuple[str, bool] | None:
+    """("below" | "above", negated) if a threshold ``num`` closes a comparison."""
+    if num.sign or num.value not in _THRESHOLDS or re.search(_WINDOW_WORD, text[num.end :]):
+        return None
+    match = _CLAIM.search(text[max(0, num.start - 60) : num.start])
+    if match is None:
+        return None
+    op = re.sub(r"\s+", " ", match.group("op"))
+    return ("below" if op in _BELOW else "above"), bool(match.group("neg"))
+
+
+def _comparison_note(text: str, num: _Number, case: Case, span: tuple[int, int]) -> str | None:
+    """A note if ``num`` is a threshold the text compares its signal against wrongly."""
+    claim = _claim(text, num)
+    signal = _context(text, num, span)
+    if claim is None or signal not in _COMPARABLE:
+        return None
+    direction, negated = claim
+    actual = case.rsi if signal == "rsi" else round(case.vol * 100, 2)
+    holds = actual < num.value if direction == "below" else actual > num.value
+    if holds != negated:
+        return None
+    said = f"{'not ' if negated else ''}{direction} {num.value:g}"
+    name = "RSI" if signal == "rsi" else "volatility"
+    return f"says {name} {actual:g} is {said} (comparison)"
+
+
 def _is_constant(text: str, num: _Number, ranges: set[int]) -> bool:
     if num.sign == "-":
         return False
-    if num.start in ranges:
+    if num.start in ranges or _claim(text, num):
         return True
     if num.value in _THRESHOLDS and _COMPARISON.search(text[max(0, num.start - 40) : num.start]):
         return True
@@ -213,7 +257,9 @@ def _number_note(text: str, num: _Number, case: Case, span: tuple[int, int]) -> 
 
 
 def numbers_ok(text: str, case: Case) -> tuple[bool, list[str]]:
-    notes = [note for num, span in _located(text) if (note := _number_note(text, num, case, span))]
+    located = _located(text)
+    notes = [note for num, span in located if (note := _number_note(text, num, case, span))]
+    notes += [note for num, span in located if (note := _comparison_note(text, num, case, span))]
     return not notes, notes
 
 
