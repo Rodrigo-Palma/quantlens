@@ -68,6 +68,14 @@ select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
 addopts = "-q --cov=quantlens --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Any Starlette deprecation fails the suite instead of scrolling past in the summary.
+# The one exception is explicit: starlette.testclient (Starlette >= 1.7) deprecates httpx in
+# favour of httpx2 (https://github.com/pydantic/httpx2). Adopting httpx2 is a separate
+# dependency decision; until then this message is ignored, and only this one.
+filterwarnings = [
+    "error::starlette.exceptions.StarletteDeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["quantlens"]
