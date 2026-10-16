@@ -69,8 +69,12 @@ against the frozen patterns, and only that number is quoted.
 Recorded LLM outputs for the faithfulness eval, one JSONL per model and
 variant, 180 cases each. The 120 low/high volatility cases were recorded first;
 the 60 moderate cases were appended with `record --missing-only` the same day,
-same Ollama version and model digests. See `quantlens/evals/cassette.py` and
-ADR 0005.
+same Ollama version and model digests. The two `*.thresholds.jsonl` files
+(instruction-only baseline: thresholds written in the prompt, nothing
+retrieved) were recorded on 2026-10-16 with `make evals-record-thresholds`,
+same Ollama version (0.35.1) and model digests as the others. They are scored
+but kept out of the checker audit's mutation pool. See
+`quantlens/evals/cassette.py` and ADR 0005.
 
 ## `checker_errors.jsonl`
 
