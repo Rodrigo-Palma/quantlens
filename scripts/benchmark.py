@@ -6,7 +6,7 @@ Two parts:
   guardrails), timed here with no network and no LLM, so the numbers reproduce
   in CI and on any machine.
 * The LLM call, which dominates a real request. It is not re-run here: it is
-  read from ``evals/data/latency.json``, written by
+  read from ``src/quantlens/evals/data/latency.json``, written by
   ``python -m quantlens.evals.latency`` (warm model, idle Ollama server,
   production prompts), and reported per model with its hardware.
 
@@ -128,7 +128,8 @@ def main() -> None:
     for name, p50, p95, p99 in rows:
         print(f"{name:42} {p50:8.0f}µ {p95:8.0f}µ {p99:8.0f}µ")
     print("-" * 72)
-    print("LLM latency below is read from evals/data/latency.json, not measured in this run:")
+    print("LLM latency below is read from src/quantlens/evals/data/latency.json,")
+    print("not measured in this run:")
     for label, n, p50, p95, p99 in llm_rows:
         print(f"LLM {label} (n={n}): p50 {p50:.1f}s  p95 {p95:.1f}s  max {p99:.1f}s")
 
