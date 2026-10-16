@@ -11,9 +11,13 @@ from quantlens.api import main
 
 @pytest.fixture(autouse=True)
 def _empty_api_caches() -> Iterator[None]:
-    """Each test sees a cold cache; a cached series must not leak across tests."""
-    main._closes.clear()
-    main._explanations.clear()
+    """Each test sees a cold cache and a full rate-limit bucket; no state leaks across tests."""
+    _reset()
     yield
+    _reset()
+
+
+def _reset() -> None:
     main._closes.clear()
     main._explanations.clear()
+    main._limiter.clear()

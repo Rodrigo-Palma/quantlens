@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Rate limit on `/analyze`: an in-memory token bucket per client address
+  (`RATE_LIMIT_PER_MIN`, `RATE_LIMIT_BURST`), checked before the market data
+  fetch, so unknown tickers spend a token too. Past it the API answers 429 with
+  `Retry-After` and `X-Request-ID`, and the request trace logs status 429.
+  The bucket map is an LRU capped at `RATE_LIMIT_MAX_CLIENTS`.
+  `X-Forwarded-For` is read only from `TRUSTED_PROXIES`. `/health` is exempt.
+- `LLM_MAX_CONCURRENCY` caps LLM calls in flight. A request that finds every
+  slot busy gets the rule-based explanation at once, logged as
+  `fallback_reason: llm_busy`; a cached explanation never takes a slot.
+
 ## [0.7.0] - 2026-10-09
 
 ### Added

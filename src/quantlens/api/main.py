@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
+import threading
 from typing import Annotated, Literal
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from quantlens import __version__, guardrails, llm, rag
@@ -16,6 +17,7 @@ from quantlens.data.market import fetch_close
 from quantlens.explain import rule_based
 from quantlens.observability import RequestTrace, configure_logging
 from quantlens.quant import regime, signals
+from quantlens.ratelimit import RateLimiter, client_address
 
 # RSI(14) needs 15 closes and 20-session momentum needs 21; below that a signal
 # is NaN, which is not valid JSON. Reject the request instead of serving NaN.
@@ -31,6 +33,11 @@ configure_logging()
 app = FastAPI(title=settings.app_name, version=__version__)
 _closes: TTLCache[pd.Series] = TTLCache(settings.cache_ttl_s, settings.cache_max_entries)
 _explanations: TTLCache[str] = TTLCache(settings.cache_ttl_s, settings.cache_max_entries)
+_limiter = RateLimiter(
+    settings.rate_limit_per_min, settings.rate_limit_burst, settings.rate_limit_max_clients
+)
+# The endpoint is sync (threadpool), so a threading primitive, not an asyncio one.
+_llm_slots = threading.BoundedSemaphore(settings.llm_max_concurrency)
 
 
 class HealthResponse(BaseModel):
@@ -60,17 +67,21 @@ def health() -> HealthResponse:
 @app.get("/analyze", response_model=AnalyzeResponse)
 def analyze(
     ticker: Annotated[str, Query(pattern=TICKER_PATTERN, max_length=TICKER_MAX_LENGTH)],
+    request: Request,
     response: Response,
 ) -> AnalyzeResponse:
     """Compute quant signals for a B3 ticker and explain them.
 
     The explanation comes from the configured LLM. If the model is unavailable or
     its output trips the guardrail, a deterministic rule-based summary is served
-    instead, and ``explanation_source`` says which one the caller got.
+    instead, and ``explanation_source`` says which one the caller got. The same
+    happens when every LLM slot is busy. Each client address is rate limited
+    before any I/O, so an unknown ticker also spends a token.
     """
     trace = RequestTrace(endpoint="/analyze", ticker=ticker.upper())
     response.headers["X-Request-ID"] = trace.request_id
     try:
+        _enforce_rate_limit(request)
         return _analyze(trace.ticker, trace)
     except HTTPException as exc:
         trace.status = exc.status_code
@@ -78,6 +89,18 @@ def analyze(
         raise
     finally:
         trace.emit()
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    peer = request.client.host if request.client else "unknown"
+    key = client_address(peer, request.headers.get("x-forwarded-for"), settings.trusted_proxies)
+    retry_after = _limiter.check(key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="rate limit exceeded",
+            headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+        )
 
 
 def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
@@ -101,14 +124,14 @@ def _analyze(symbol: str, trace: RequestTrace) -> AnalyzeResponse:
     with trace.stage("retrieve"):
         context = "\n\n".join(rag.retrieve_for_regime(current))
     with trace.stage("llm"):
-        generated = _explain(symbol, rsi_value, mom, vol, context)
+        generated, is_busy = _explain(symbol, rsi_value, mom, vol, context)
     with trace.stage("guardrail"):
         verdict = guardrails.validate(generated) if generated else None
 
     source, explanation, violations = _choose(symbol, rsi_value, mom, vol, generated, verdict)
     trace.attributes = {
         "explanation_source": source,
-        "fallback_reason": _fallback_reason(generated, verdict),
+        "fallback_reason": _fallback_reason(generated, verdict, is_busy),
         "guardrail_violations": violations,
         "regime": [current.rsi, current.trend, current.volatility],
         "llm_provider": settings.llm_provider,
@@ -138,16 +161,27 @@ def _fetch(symbol: str) -> pd.Series:
     return close
 
 
-def _explain(symbol: str, rsi_value: float, mom: float, vol: float, context: str) -> str | None:
-    """The LLM explanation, reused for identical inputs; a failure is not cached."""
+def _explain(
+    symbol: str, rsi_value: float, mom: float, vol: float, context: str
+) -> tuple[str | None, bool]:
+    """The LLM explanation and whether every LLM slot was busy.
+
+    Reused for identical inputs without taking a slot; a failure is not cached.
+    A request that finds no free slot does not wait for one.
+    """
     key = (settings.llm_provider, settings.llm_model, symbol, rsi_value, mom, vol, context)
     cached = _explanations.get(key)
     if cached is not None:
-        return cached
-    generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
+        return cached, False
+    if not _llm_slots.acquire(blocking=False):
+        return None, True
+    try:
+        generated = llm.explain(symbol, rsi_value, mom, vol, context=context)
+    finally:
+        _llm_slots.release()
     if generated:
         _explanations.put(key, generated)
-    return generated
+    return generated, False
 
 
 def _choose(
@@ -165,8 +199,10 @@ def _choose(
 
 
 def _fallback_reason(
-    generated: str | None, verdict: guardrails.GuardrailResult | None
+    generated: str | None, verdict: guardrails.GuardrailResult | None, is_busy: bool
 ) -> str | None:
+    if is_busy:
+        return "llm_busy"
     if not generated:
         return "llm_unavailable"
     if verdict is not None and not verdict.ok:

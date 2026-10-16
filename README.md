@@ -203,9 +203,15 @@ healthcheck. LLM latency is never measured in CI; it is recorded with
 | `LLM_API_KEY` | empty | sent as a bearer token by the `openai` provider |
 | `LLM_TEMPERATURE`, `LLM_SEED`, `LLM_THINK` | `0`, `0`, `false` | greedy, seeded, no reasoning trace |
 | `CACHE_TTL_S`, `CACHE_MAX_ENTRIES` | `900`, `256` | reuse of a fetched series and of a generated explanation; `0` disables |
+| `RATE_LIMIT_PER_MIN`, `RATE_LIMIT_BURST` | `30`, `10` | token bucket per client address on `/analyze`; past it, 429 with `Retry-After` |
+| `RATE_LIMIT_MAX_CLIENTS` | `10000` | addresses tracked at once; the least recently seen is dropped and starts over with a full bucket |
+| `TRUSTED_PROXIES` | empty | comma-separated IPs or CIDRs whose `X-Forwarded-For` is believed; empty ignores the header |
+| `LLM_MAX_CONCURRENCY` | `2` | LLM calls in flight; a request past it gets the rule-based explanation (`fallback_reason: llm_busy`) instead of waiting |
 
 `/analyze` accepts only B3 ticker forms (`PETR4`, `TAEE11`, `PETR4F`) and returns
-422 for anything else before any network call.
+422 for anything else before any network call. The rate limit is checked next,
+also before any network call, so a ticker that turns out to be unknown (404)
+still spends a token. `/health` is not limited.
 
 The `openai` provider is tested with a mocked transport and was run live
 against Ollama's `/v1` endpoint, not against a hosted vendor.
@@ -247,9 +253,13 @@ against Ollama's `/v1` endpoint, not against a hosted vendor.
   rank 1, and the held-out set came from a single generator model.
 - **Signals are descriptive.** RSI, momentum and volatility are not a
   backtested strategy, and nothing here predicts returns.
-- **Single ticker, synchronous, no rate limit.** Repeated requests are served
-  from a 15-minute cache, but a stream of distinct valid tickers still costs
-  one LLM call each; a public deployment needs a rate limit in front.
+- **The rate limit is per process.** Buckets live in memory, so each replica or
+  worker has its own and a restart resets them; it is not a distributed limit.
+  Behind a reverse proxy without `TRUSTED_PROXIES`, every client is seen as the
+  proxy and all of them share one bucket. Each distinct valid ticker inside the
+  limit still costs one LLM call (the cache only covers repeats), and under a
+  burst of legitimate traffic `LLM_MAX_CONCURRENCY` sends requests to the
+  rule-based fallback rather than queueing them.
 
 ## Experimental
 
