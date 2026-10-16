@@ -168,3 +168,34 @@ def test_settings_accept_trusted_proxies() -> None:
 def test_settings_reject_non_positive_limits(field: str) -> None:
     with pytest.raises(ValidationError):
         Settings(**{field: 0})
+
+
+def test_ipv6_addresses_in_one_64_share_a_bucket() -> None:
+    # One host usually controls a whole /64 and can rotate through it at will.
+    limiter = RateLimiter(per_min=30, burst=10, max_clients=10_000)
+    allowed = sum(
+        limiter.check(client_address(f"2001:db8::{i:x}", None, "")) is None for i in range(1000)
+    )
+    assert allowed == 10
+
+
+def test_ipv6_key_is_the_64_network() -> None:
+    assert client_address("2001:db8:0:1::abcd", None, "") == "2001:db8:0:1::/64"
+    assert client_address("2001:db8:0:1::1", None, "") == client_address(
+        "2001:db8:0:1:ffff:ffff:ffff:ffff", None, ""
+    )
+
+
+def test_ipv6_addresses_in_different_64s_keep_separate_buckets() -> None:
+    assert client_address("2001:db8:0:1::1", None, "") != client_address(
+        "2001:db8:0:2::1", None, ""
+    )
+
+
+def test_forwarded_ipv6_hop_is_keyed_by_its_64() -> None:
+    key = client_address("10.0.0.1", "2001:db8:0:1::abcd", "10.0.0.1")
+    assert key == "2001:db8:0:1::/64"
+
+
+def test_ipv4_mapped_ipv6_is_keyed_as_the_ipv4_address() -> None:
+    assert client_address("::ffff:203.0.113.9", None, "") == "203.0.113.9"

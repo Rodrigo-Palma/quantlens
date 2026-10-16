@@ -6,6 +6,11 @@ bucket; the map is an LRU capped at ``max_clients`` so a stream of distinct
 addresses cannot grow memory without bound. An evicted client comes back with a
 full bucket, which is the price of the cap.
 
+The bucket key is an IPv4 address, or the /64 network of an IPv6 address. A
+single subscriber is usually handed a whole /64 (ISPs, VPS providers) and can
+rotate through it at will, so keying by the full IPv6 address would give every
+request a fresh bucket. IPv4-mapped IPv6 addresses are keyed as the IPv4 address.
+
 The limit lives in one process: it is not shared between replicas or workers.
 """
 
@@ -19,6 +24,8 @@ from collections.abc import Callable
 from functools import lru_cache
 
 type _Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+IPV6_PREFIX = 64
 
 
 class RateLimiter:
@@ -69,16 +76,30 @@ def client_address(peer: str, forwarded_for: str | None, trusted_proxies: str) -
     Hops are walked right to left, skipping trusted proxies, and the first other
     hop is the client: everything left of it was written by the client and can
     be spoofed. Without trusted proxies the peer is used, so behind a proxy every
-    client shares the proxy's bucket.
+    client shares the proxy's bucket. The result is the bucket key from
+    :func:`_bucket_key`.
     """
     networks = parse_networks(trusted_proxies)
     if not networks or not _is_trusted(peer, networks):
-        return peer
+        return _bucket_key(peer)
     hops = [hop.strip() for hop in (forwarded_for or "").split(",") if hop.strip()]
     for hop in reversed(hops):
         if not _is_trusted(hop, networks):
-            return hop
-    return peer
+            return _bucket_key(hop)
+    return _bucket_key(peer)
+
+
+def _bucket_key(address: str) -> str:
+    """IPv4 as is, IPv6 as its /64 network; anything unparsable is kept verbatim."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{ip}/{IPV6_PREFIX}", strict=False))
+    return str(ip)
 
 
 def _is_trusted(address: str, networks: tuple[_Network, ...]) -> bool:
